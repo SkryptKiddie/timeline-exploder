@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Timeline Exploder</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <div class="top-chrome">
+        <header class="menu-bar-wrap">
+          <nav class="menu-bar" aria-label="Application menu">
+            <div class="menu-item" data-menu-container>
+              <button id="fileMenuBtn" class="menu-button" type="button" aria-haspopup="true" aria-expanded="false">
+                File
+              </button>
+              <div id="fileMenu" class="menu-dropdown hidden" role="menu" aria-labelledby="fileMenuBtn">
+                <button id="openFileMenuItem" class="menu-action" type="button" role="menuitem">Open...</button>
+                <button id="firstRowHeaderMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="true">
+                  First Row Is Header
+                </button>
+                <button id="wordWrapMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
+                  Word Wrap Fields
+                </button>
+                <button id="hideEmptyColsMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
+                  Hide Empty Columns
+                </button>
+                <button id="clearFiltersMenuItem" class="menu-action" type="button" role="menuitem">Clear Filters</button>
+                <button id="copySelectedMenuItem" class="menu-action hidden" type="button" role="menuitem">
+                  Copy Selected Rows
+                </button>
+                <button id="copyVisibleMenuItem" class="menu-action" type="button" role="menuitem">
+                  Copy Visible Rows
+                </button>
+              </div>
+            </div>
+          </nav>
+        </header>
+
+        <input id="fileInput" class="hidden-file-input" type="file" accept=".csv,.json,application/json,text/csv" />
+
+        <section class="controls">
+          <div class="toolbar">
+            <button id="openFileBtn" class="tool-btn" type="button">Open File</button>
+            <button id="copySelectedBtn" class="tool-btn hidden" type="button">Copy Selected</button>
+            <button id="copyVisibleBtn" class="tool-btn" type="button">Copy Visible</button>
+            <button id="clearFiltersBtn" class="tool-btn" type="button">Clear Filters</button>
+          </div>
+          <p id="status" class="status" aria-live="polite">Use File > Open or the Open File button to load CSV/JSON.</p>
+        </section>
+      </div>
+
+      <section class="table-zone hidden" id="tableZone">
+        <div class="meta-row">
+          <p>Rows: <strong id="rowCount">0</strong></p>
+          <p>Columns: <strong id="columnCount">0</strong></p>
+          <label class="global-search-wrap" for="globalSearchInput">
+            Search:
+            <input id="globalSearchInput" class="global-search-input" type="text" placeholder="Search all columns..." />
+          </label>
+          <div id="groupByZone" class="group-by-zone" data-drop-active="false">
+            <p id="groupByHint" class="group-by-hint">Drop column here to group</p>
+            <div id="groupByLabel" class="group-by-label hidden">
+              <span class="group-by-prefix">Grouped by:</span>
+              <div id="groupByList" class="group-by-list" aria-label="Grouped fields"></div>
+              <button id="clearGroupByBtn" class="clear-group-by-btn" type="button" title="Clear all grouped fields">&times;</button>
+            </div>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table id="dataTable" class="data-table"></table>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
