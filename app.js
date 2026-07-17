@@ -970,7 +970,7 @@ function appendGroupedNodes(tbody, nodes, level, visibleHeaders, pathPrefix = ""
     headerRow.className = "group-header-row";
 
     const headerCell = document.createElement("td");
-    headerCell.colSpan = visibleHeaders.length + 1;
+    headerCell.colSpan = visibleHeaders.length + 2;
     headerCell.style.padding = "0";
 
     const headerContent = document.createElement("div");
@@ -1300,17 +1300,27 @@ function onRowSelectToggle(event) {
 }
 
 function onToggleSelectAllVisible(event) {
+  const visibleRowIds = getVisibleRowIdsFromRenderedTable();
+
   if (event.target.checked) {
-    state.filteredRows.forEach((row) => state.selectedRowIds.add(row.__rowId));
+    visibleRowIds.forEach((rowId) => state.selectedRowIds.add(rowId));
   } else {
-    state.filteredRows.forEach((row) => state.selectedRowIds.delete(row.__rowId));
+    visibleRowIds.forEach((rowId) => state.selectedRowIds.delete(rowId));
   }
   updateSelectedActionsVisibility();
   renderTable();
 }
 
 function areAllVisibleSelected() {
-  return state.filteredRows.length > 0 && state.filteredRows.every((row) => state.selectedRowIds.has(row.__rowId));
+  const visibleRowIds = getVisibleRowIdsFromRenderedTable();
+  return visibleRowIds.length > 0 && visibleRowIds.every((rowId) => state.selectedRowIds.has(rowId));
+}
+
+function getVisibleRowIdsFromRenderedTable() {
+  const checkboxes = Array.from(dataTable.querySelectorAll("tbody input.row-checkbox[data-row-id]"));
+  return checkboxes
+    .map((checkbox) => checkbox.dataset.rowId)
+    .filter((rowId) => typeof rowId === "string" && rowId !== "");
 }
 
 function clearAllFilters() {
@@ -1320,7 +1330,7 @@ function clearAllFilters() {
   state.filters = {};
   state.globalSearch = "";
   globalSearchInput.value = "";
-  state.filteredRows = state.rows;
+  applyFilters();
   persistCurrentView();
   renderTable();
   setStatus("All filters cleared.", "ok");
