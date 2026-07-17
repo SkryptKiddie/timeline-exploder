@@ -11,6 +11,9 @@ const groupByLabel = document.getElementById("groupByLabel");
 const groupByList = document.getElementById("groupByList");
 const clearGroupByBtn = document.getElementById("clearGroupByBtn");
 const statusNode = document.getElementById("status");
+const loadingProgressWrap = document.getElementById("loadingProgressWrap");
+const loadingProgressBar = document.getElementById("loadingProgressBar");
+const loadingProgressText = document.getElementById("loadingProgressText");
 const openFileBtn = document.getElementById("openFileBtn");
 const copySelectedBtn = document.getElementById("copySelectedBtn");
 const copyVisibleBtn = document.getElementById("copyVisibleBtn");
@@ -43,6 +46,7 @@ const state = {
   fileText: "",
   fileName: "",
   fileType: "",
+  visibleRowIds: [],
   groupByColumns: [], // Ordered list of columns used for drill-down grouping
   expandedGroups: new Set() // Track which group values are expanded
 };
@@ -82,6 +86,13 @@ const groupChipDragState = {
 
 const STORAGE_PREFS_KEY = "timelineExploder:prefs";
 const STORAGE_VIEWS_KEY = "timelineExploder:views";
+const RENDER_BATCH_SIZE = 350;
+const RENDER_PROGRESS_MIN_ROWS = 1200;
+
+const renderState = {
+  renderPassId: 0,
+  rafId: null
+};
 
 const FILTER_OPERATORS = [
   { value: "contains", label: "contains" },
@@ -420,22 +431,39 @@ async function onFileSelected(event) {
   }
 
   setStatus(`Reading ${file.name}...`);
+  showLoadingProgress(5, `Reading ${file.name}...`);
 
   try {
     state.fileText = await file.text();
     state.fileName = file.name;
     state.fileType = file.type || "";
 
+    showLoadingProgress(25, "Parsing file...");
+    await nextFrame();
     parseCurrentFile();
+
+    showLoadingProgress(55, "Restoring saved view...");
     restoreViewForCurrentFile();
+
+    showLoadingProgress(72, "Applying filters...");
     applyFilters();
-    renderTable();
+
+    await renderTable({
+      showProgress: true,
+      progressBase: 72,
+      progressSpan: 26,
+      progressLabel: "Rendering rows"
+    });
+    showLoadingProgress(100, "Done");
+
     setStatus(
       `Loaded ${state.rows.length} row${state.rows.length === 1 ? "" : "s"} from ${file.name}.`,
       "ok"
     );
+    window.setTimeout(hideLoadingProgress, 280);
   } catch (error) {
     console.error(error);
+    hideLoadingProgress();
     setStatus("Could not parse this file. Check the file format and try again.", "warn");
     resetState();
     renderTable();
@@ -680,6 +708,7 @@ function hydrateState(headers, rows) {
   state.filters = {};
   state.globalSearch = "";
   state.filteredRows = state.rows;
+  state.visibleRowIds = [];
   state.sort = { header: null, direction: null };
   state.selectedRowIds = new Set();
   if (!Number.isFinite(state.rowNumberWidth)) {
@@ -729,6 +758,7 @@ function resetState() {
   state.headers = [];
   state.rows = [];
   state.filteredRows = [];
+  state.visibleRowIds = [];
   state.filters = {};
   state.globalSearch = "";
   state.sort = { header: null, direction: null };
@@ -958,59 +988,149 @@ function appendDataRow(tbody, row, visibleHeaders) {
   tbody.appendChild(tr);
 }
 
-function appendGroupedNodes(tbody, nodes, level, visibleHeaders, pathPrefix = "") {
+function flattenGroupedRenderRows(nodes, level, visibleHeaders, pathPrefix = "", target = []) {
   const header = state.groupByColumns[level];
   const isLeafLevel = level === state.groupByColumns.length - 1;
 
   nodes.forEach((node) => {
     const groupPath = pathPrefix ? `${pathPrefix}\u241f${node.value}` : node.value;
     const isExpanded = state.expandedGroups.has(groupPath);
-
-    const headerRow = document.createElement("tr");
-    headerRow.className = "group-header-row";
-
-    const headerCell = document.createElement("td");
-    headerCell.colSpan = visibleHeaders.length + 2;
-    headerCell.style.padding = "0";
-
-    const headerContent = document.createElement("div");
-    headerContent.className = "group-header";
-    headerContent.style.paddingLeft = `${8 + level * 16}px`;
-    headerContent.addEventListener("click", () => onToggleGroupExpand(groupPath));
-
-    const expandBtn = document.createElement("button");
-    expandBtn.className = "group-expand-toggle";
-    expandBtn.textContent = isExpanded ? "▼" : "▶";
-    expandBtn.type = "button";
-    headerContent.appendChild(expandBtn);
-
-    const headerText = document.createElement("div");
-    headerText.className = "group-header-text";
-    headerText.textContent = `${header}: ${node.value} (Count: ${node.count})`;
-    headerContent.appendChild(headerText);
-
-    headerCell.appendChild(headerContent);
-    headerRow.appendChild(headerCell);
-    tbody.appendChild(headerRow);
+    target.push({ kind: "group-header", level, header, node, groupPath, visibleHeaders });
 
     if (!isExpanded) {
       return;
     }
 
     if (isLeafLevel) {
-      node.children.forEach((row) => appendDataRow(tbody, row, visibleHeaders));
+      node.children.forEach((row) => {
+        target.push({ kind: "data-row", row, visibleHeaders });
+      });
       return;
     }
 
-    appendGroupedNodes(tbody, node.children, level + 1, visibleHeaders, groupPath);
+    flattenGroupedRenderRows(node.children, level + 1, visibleHeaders, groupPath, target);
   });
+
+  return target;
 }
 
-function renderGroupedView() {
+function collectVisibleRowIdsFromGroupedNodes(nodes, level, pathPrefix = "", ids = []) {
+  const isLeafLevel = level === state.groupByColumns.length - 1;
+
+  nodes.forEach((node) => {
+    const groupPath = pathPrefix ? `${pathPrefix}\u241f${node.value}` : node.value;
+    if (!state.expandedGroups.has(groupPath)) {
+      return;
+    }
+
+    if (isLeafLevel) {
+      node.children.forEach((row) => ids.push(row.__rowId));
+      return;
+    }
+
+    collectVisibleRowIdsFromGroupedNodes(node.children, level + 1, groupPath, ids);
+  });
+
+  return ids;
+}
+
+function appendGroupedRenderItem(tbody, item) {
+  if (item.kind === "data-row") {
+    appendDataRow(tbody, item.row, item.visibleHeaders);
+    return;
+  }
+
+  const headerRow = document.createElement("tr");
+  headerRow.className = "group-header-row";
+
+  const headerCell = document.createElement("td");
+  headerCell.colSpan = item.visibleHeaders.length + 2;
+  headerCell.style.padding = "0";
+
+  const headerContent = document.createElement("div");
+  headerContent.className = "group-header";
+  headerContent.style.paddingLeft = `${8 + item.level * 16}px`;
+  headerContent.addEventListener("click", () => onToggleGroupExpand(item.groupPath));
+
+  const expandBtn = document.createElement("button");
+  expandBtn.className = "group-expand-toggle";
+  expandBtn.textContent = state.expandedGroups.has(item.groupPath) ? "▼" : "▶";
+  expandBtn.type = "button";
+  headerContent.appendChild(expandBtn);
+
+  const headerText = document.createElement("div");
+  headerText.className = "group-header-text";
+  headerText.textContent = `${item.header}: ${item.node.value} (Count: ${item.node.count})`;
+  headerContent.appendChild(headerText);
+
+  headerCell.appendChild(headerContent);
+  headerRow.appendChild(headerCell);
+  tbody.appendChild(headerRow);
+}
+
+function cancelPendingRender() {
+  renderState.renderPassId += 1;
+  if (renderState.rafId) {
+    cancelAnimationFrame(renderState.rafId);
+    renderState.rafId = null;
+  }
+  return renderState.renderPassId;
+}
+
+function nextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+async function appendItemsInBatches(tbody, items, appendItem, options = {}) {
+  const {
+    renderPassId,
+    batchSize = RENDER_BATCH_SIZE,
+    showProgress = false,
+    progressBase = 0,
+    progressSpan = 100,
+    progressLabel = "Rendering"
+  } = options;
+
+  if (!items.length) {
+    return;
+  }
+
+  let cursor = 0;
+
+  while (cursor < items.length) {
+    if (renderPassId !== renderState.renderPassId) {
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    const end = Math.min(cursor + batchSize, items.length);
+    for (let i = cursor; i < end; i += 1) {
+      appendItem(fragment, items[i]);
+    }
+    tbody.appendChild(fragment);
+    cursor = end;
+
+    if (showProgress) {
+      const pct = progressBase + Math.round((cursor / items.length) * progressSpan);
+      showLoadingProgress(pct, `${progressLabel}: ${cursor.toLocaleString()} / ${items.length.toLocaleString()}`);
+    }
+
+    if (cursor < items.length) {
+      await new Promise((resolve) => {
+        renderState.rafId = requestAnimationFrame(() => {
+          renderState.rafId = null;
+          resolve();
+        });
+      });
+    }
+  }
+}
+
+async function renderGroupedView(options = {}, renderPassId = renderState.renderPassId) {
   dataTable.innerHTML = "";
 
   if (!state.headers.length || !state.groupByColumns.length) {
-    renderTable();
+    await renderTable(options);
     return;
   }
 
@@ -1040,19 +1160,34 @@ function renderGroupedView() {
 
   const tbody = document.createElement("tbody");
   const groupedTree = buildNestedGroups(state.filteredRows, state.groupByColumns, 0);
-  appendGroupedNodes(tbody, groupedTree, 0, visibleHeaders);
+  const groupedItems = flattenGroupedRenderRows(groupedTree, 0, visibleHeaders);
+  state.visibleRowIds = collectVisibleRowIdsFromGroupedNodes(groupedTree, 0);
+
+  const shouldShowProgress = Boolean(options.showProgress) || groupedItems.length >= RENDER_PROGRESS_MIN_ROWS;
+  await appendItemsInBatches(tbody, groupedItems, appendGroupedRenderItem, {
+    renderPassId,
+    showProgress: shouldShowProgress,
+    progressBase: options.progressBase ?? 0,
+    progressSpan: options.progressSpan ?? 100,
+    progressLabel: options.progressLabel || "Rendering rows"
+  });
+
+  if (renderPassId !== renderState.renderPassId) {
+    return;
+  }
 
   dataTable.appendChild(tbody);
   updateMeta();
 }
 
-function renderTable() {
+async function renderTable(options = {}) {
+  const renderPassId = cancelPendingRender();
   dataTable.innerHTML = "";
   applyWordWrapClass();
 
   // If grouping is active, delegate to grouped view
   if (state.groupByColumns.length) {
-    renderGroupedView();
+    await renderGroupedView(options, renderPassId);
     return;
   }
 
@@ -1066,6 +1201,7 @@ function renderTable() {
   tableZone.classList.remove("hidden");
 
   const visibleHeaders = getVisibleHeaders();
+  state.visibleRowIds = state.filteredRows.map((row) => row.__rowId);
 
   const colgroup = document.createElement("colgroup");
   const selectionCol = document.createElement("col");
@@ -1093,33 +1229,23 @@ function renderTable() {
   dataTable.appendChild(thead);
 
   const tbody = document.createElement("tbody");
-  state.filteredRows.forEach((row) => {
-    const tr = document.createElement("tr");
+  const shouldShowProgress = Boolean(options.showProgress) || state.filteredRows.length >= RENDER_PROGRESS_MIN_ROWS;
+  await appendItemsInBatches(
+    tbody,
+    state.filteredRows,
+    (fragment, row) => appendDataRow(fragment, row, visibleHeaders),
+    {
+      renderPassId,
+      showProgress: shouldShowProgress,
+      progressBase: options.progressBase ?? 0,
+      progressSpan: options.progressSpan ?? 100,
+      progressLabel: options.progressLabel || "Rendering rows"
+    }
+  );
 
-    const selectTd = document.createElement("td");
-    selectTd.className = "selection-cell";
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.className = "row-checkbox";
-    checkbox.checked = state.selectedRowIds.has(row.__rowId);
-    checkbox.dataset.rowId = row.__rowId;
-    checkbox.addEventListener("change", onRowSelectToggle);
-    selectTd.appendChild(checkbox);
-    tr.appendChild(selectTd);
-
-    const rowNumberTd = document.createElement("td");
-    rowNumberTd.className = "row-number-cell";
-    rowNumberTd.textContent = String(row.__sourceIndex + 1);
-    tr.appendChild(rowNumberTd);
-
-    visibleHeaders.forEach((header) => {
-      const td = document.createElement("td");
-      td.textContent = row[header] || "";
-      tr.appendChild(td);
-    });
-
-    tbody.appendChild(tr);
-  });
+  if (renderPassId !== renderState.renderPassId) {
+    return;
+  }
 
   dataTable.appendChild(tbody);
   updateMeta();
@@ -1241,9 +1367,22 @@ function applyFilters() {
 
 function onGlobalSearchInput(event) {
   state.globalSearch = event.target.value || "";
-  applyFilters();
-  persistCurrentView();
-  renderTable();
+  scheduleGlobalSearchApply();
+}
+
+let globalSearchTimer = null;
+
+function scheduleGlobalSearchApply() {
+  if (globalSearchTimer) {
+    clearTimeout(globalSearchTimer);
+  }
+
+  globalSearchTimer = setTimeout(() => {
+    globalSearchTimer = null;
+    applyFilters();
+    persistCurrentView();
+    renderTable();
+  }, 160);
 }
 
 function applySort() {
@@ -1300,7 +1439,7 @@ function onRowSelectToggle(event) {
 }
 
 function onToggleSelectAllVisible(event) {
-  const visibleRowIds = getVisibleRowIdsFromRenderedTable();
+  const visibleRowIds = state.visibleRowIds;
 
   if (event.target.checked) {
     visibleRowIds.forEach((rowId) => state.selectedRowIds.add(rowId));
@@ -1312,15 +1451,8 @@ function onToggleSelectAllVisible(event) {
 }
 
 function areAllVisibleSelected() {
-  const visibleRowIds = getVisibleRowIdsFromRenderedTable();
+  const visibleRowIds = state.visibleRowIds;
   return visibleRowIds.length > 0 && visibleRowIds.every((rowId) => state.selectedRowIds.has(rowId));
-}
-
-function getVisibleRowIdsFromRenderedTable() {
-  const checkboxes = Array.from(dataTable.querySelectorAll("tbody input.row-checkbox[data-row-id]"));
-  return checkboxes
-    .map((checkbox) => checkbox.dataset.rowId)
-    .filter((rowId) => typeof rowId === "string" && rowId !== "");
 }
 
 function clearAllFilters() {
@@ -1993,4 +2125,24 @@ function setStatus(message, type) {
   if (type) {
     statusNode.classList.add(type);
   }
+}
+
+function showLoadingProgress(percent, message) {
+  if (!loadingProgressWrap || !loadingProgressBar || !loadingProgressText) {
+    return;
+  }
+
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  loadingProgressWrap.classList.remove("hidden");
+  loadingProgressBar.style.width = `${safePercent}%`;
+  loadingProgressText.textContent = message || "Processing file...";
+}
+
+function hideLoadingProgress() {
+  if (!loadingProgressWrap || !loadingProgressBar) {
+    return;
+  }
+
+  loadingProgressWrap.classList.add("hidden");
+  loadingProgressBar.style.width = "0%";
 }

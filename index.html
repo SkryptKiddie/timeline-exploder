@@ -49,7 +49,15 @@
             <button id="copyVisibleBtn" class="tool-btn" type="button">Copy Visible</button>
             <button id="clearFiltersBtn" class="tool-btn" type="button">Clear Filters</button>
           </div>
-          <p id="status" class="status" aria-live="polite">Use File > Open or the Open File button to load CSV/JSON.</p>
+          <div class="status-wrap">
+            <p id="status" class="status" aria-live="polite">Use File > Open or the Open File button to load CSV/JSON.</p>
+            <div id="loadingProgressWrap" class="loading-progress hidden" role="status" aria-live="polite" aria-atomic="true">
+              <div class="loading-progress-track" aria-hidden="true">
+                <div id="loadingProgressBar" class="loading-progress-bar"></div>
+              </div>
+              <p id="loadingProgressText" class="loading-progress-text">Processing file...</p>
+            </div>
+          </div>
         </section>
       </div>
 

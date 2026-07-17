@@ -123,6 +123,14 @@ body {
   flex-wrap: wrap;
 }
 
+.status-wrap {
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
 .tool-btn {
   font: inherit;
   background: #f1efe4;
@@ -156,6 +164,31 @@ body {
 
 .status.warn {
   color: var(--status-warn);
+}
+
+.loading-progress {
+  width: min(420px, 46vw);
+}
+
+.loading-progress-track {
+  height: 8px;
+  width: 100%;
+  border: 1px solid #a4a195;
+  background: #ebe6d7;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.15);
+}
+
+.loading-progress-bar {
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #6f9cd0, #2d6eb3);
+  transition: width 120ms linear;
+}
+
+.loading-progress-text {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: #4a4a4a;
 }
 
 .hidden {
@@ -588,6 +621,15 @@ body {
   }
 
   .status {
+    width: 100%;
+  }
+
+  .status-wrap {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .loading-progress {
     width: 100%;
   }
 }
