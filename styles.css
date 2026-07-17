@@ -259,6 +259,23 @@ body {
   z-index: 12;
 }
 
+.data-table th.row-number-col,
+.data-table td.row-number-cell {
+  white-space: nowrap;
+}
+
+.data-table th.row-number-col {
+  text-align: right;
+  padding-right: 10px;
+}
+
+.data-table td.row-number-cell {
+  text-align: right;
+  font-weight: 700;
+  color: #1f1f1f;
+  background: #f9f9f9;
+}
+
 .data-table tr:hover td.selection-cell {
   background: #f7fbff;
 }
@@ -367,6 +384,15 @@ body {
   border: 1px solid #b7b7b7;
   padding: 2px 4px;
   height: 22px;
+}
+
+.filter-operator {
+  margin-top: 4px;
+  width: 100%;
+  font: inherit;
+  border: 1px solid #b7b7b7;
+  height: 22px;
+  background: #fff;
 }
 
 .data-table.no-wrap td {

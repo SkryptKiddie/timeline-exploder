@@ -20,6 +20,8 @@ const fileMenu = document.getElementById("fileMenu");
 const openFileMenuItem = document.getElementById("openFileMenuItem");
 const firstRowHeaderMenuItem = document.getElementById("firstRowHeaderMenuItem");
 const wordWrapMenuItem = document.getElementById("wordWrapMenuItem");
+const saveViewMenuItem = document.getElementById("saveViewMenuItem");
+const clearSavedViewMenuItem = document.getElementById("clearSavedViewMenuItem");
 const clearFiltersMenuItem = document.getElementById("clearFiltersMenuItem");
 const copySelectedMenuItem = document.getElementById("copySelectedMenuItem");
 const copyVisibleMenuItem = document.getElementById("copyVisibleMenuItem");
@@ -33,6 +35,7 @@ const state = {
   globalSearch: "",
   selectedRowIds: new Set(),
   columnWidths: {},
+  rowNumberWidth: 72,
   sort: { header: null, direction: null }, // null | "asc" | "desc"
   firstRowIsHeader: true,
   wordWrap: false,
@@ -64,7 +67,11 @@ const groupDragState = {
   active: false,
   header: null,
   ghostEl: null,
-  insideDropZone: false
+  insideDropZone: false,
+  toVisibleIndex: -1,
+  indicatorEl: null,
+  autoScrollRaf: null,
+  lastClientX: 0
 };
 
 const groupChipDragState = {
@@ -72,6 +79,259 @@ const groupChipDragState = {
   fromIndex: -1,
   toIndex: -1
 };
+
+const STORAGE_PREFS_KEY = "timelineExploder:prefs";
+const STORAGE_VIEWS_KEY = "timelineExploder:views";
+
+const FILTER_OPERATORS = [
+  { value: "contains", label: "contains" },
+  { value: "not_contains", label: "not contains" },
+  { value: "equals", label: "equals" },
+  { value: "not_equals", label: "not equals" },
+  { value: "starts_with", label: "starts with" },
+  { value: "regex", label: "regex" },
+  { value: "is_empty", label: "is empty" },
+  { value: "is_not_empty", label: "is not empty" }
+];
+
+function filterOperatorNeedsValue(operator) {
+  return operator !== "is_empty" && operator !== "is_not_empty";
+}
+
+function normalizeFilterDefinition(filterDef) {
+  if (typeof filterDef === "string") {
+    return { operator: "contains", value: filterDef };
+  }
+
+  if (!filterDef || typeof filterDef !== "object") {
+    return null;
+  }
+
+  const operator = typeof filterDef.operator === "string" ? filterDef.operator : "contains";
+  const value = typeof filterDef.value === "string" ? filterDef.value : "";
+  return { operator, value };
+}
+
+function createFilterOperatorSelect(header, selectedOperator) {
+  const select = document.createElement("select");
+  select.className = "filter-operator";
+  select.dataset.header = header;
+
+  FILTER_OPERATORS.forEach((op) => {
+    const option = document.createElement("option");
+    option.value = op.value;
+    option.textContent = op.label;
+    option.selected = op.value === selectedOperator;
+    select.appendChild(option);
+  });
+
+  select.addEventListener("change", onFilterOperatorChange);
+  return select;
+}
+
+function findFilterInputByHeader(header) {
+  const inputs = Array.from(dataTable.querySelectorAll("input.filter-input"));
+  return inputs.find((input) => input.dataset.header === header) || null;
+}
+
+function evaluateFilterRule(rawValue, filterDef) {
+  const value = (rawValue || "").toString();
+  const valueLower = value.toLowerCase();
+  const filterValue = (filterDef.value || "").toLowerCase();
+
+  switch (filterDef.operator) {
+    case "contains":
+      return valueLower.includes(filterValue);
+    case "not_contains":
+      return !valueLower.includes(filterValue);
+    case "equals":
+      return valueLower === filterValue;
+    case "not_equals":
+      return valueLower !== filterValue;
+    case "starts_with":
+      return valueLower.startsWith(filterValue);
+    case "regex": {
+      try {
+        return new RegExp(filterDef.value, "i").test(value);
+      } catch {
+        return false;
+      }
+    }
+    case "is_empty":
+      return value.trim() === "";
+    case "is_not_empty":
+      return value.trim() !== "";
+    default:
+      return valueLower.includes(filterValue);
+  }
+}
+
+function readStorageJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      return fallback;
+    }
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStorageJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore storage write failures (private mode/quota)
+  }
+}
+
+function loadPersistedPreferences() {
+  const prefs = readStorageJson(STORAGE_PREFS_KEY, {});
+
+  if (typeof prefs.firstRowIsHeader === "boolean") {
+    state.firstRowIsHeader = prefs.firstRowIsHeader;
+  }
+  if (typeof prefs.wordWrap === "boolean") {
+    state.wordWrap = prefs.wordWrap;
+  }
+  if (typeof prefs.hideEmptyCols === "boolean") {
+    state.hideEmptyCols = prefs.hideEmptyCols;
+  }
+}
+
+function persistPreferences() {
+  writeStorageJson(STORAGE_PREFS_KEY, {
+    firstRowIsHeader: state.firstRowIsHeader,
+    wordWrap: state.wordWrap,
+    hideEmptyCols: state.hideEmptyCols
+  });
+}
+
+function restoreViewForCurrentFile() {
+  if (!state.fileName || !state.headers.length) {
+    renderGroupByChips();
+    return;
+  }
+
+  const views = readStorageJson(STORAGE_VIEWS_KEY, {});
+  const view = views[state.fileName];
+  if (!view || typeof view !== "object") {
+    renderGroupByChips();
+    return;
+  }
+
+  const headerSet = new Set(state.headers);
+
+  if (Array.isArray(view.headerOrder)) {
+    const ordered = view.headerOrder.filter((header) => headerSet.has(header));
+    const leftovers = state.headers.filter((header) => !ordered.includes(header));
+    state.headers = [...ordered, ...leftovers];
+  }
+
+  if (view.columnWidths && typeof view.columnWidths === "object") {
+    Object.entries(view.columnWidths).forEach(([header, width]) => {
+      if (headerSet.has(header) && Number.isFinite(width)) {
+        state.columnWidths[header] = Math.max(50, Math.min(1000, Number(width)));
+      }
+    });
+  }
+
+  if (Number.isFinite(view.rowNumberWidth)) {
+    state.rowNumberWidth = Math.max(48, Math.min(240, Number(view.rowNumberWidth)));
+  }
+
+  const nextFilters = {};
+  if (view.filters && typeof view.filters === "object") {
+    Object.entries(view.filters).forEach(([header, filterDef]) => {
+      const normalized = normalizeFilterDefinition(filterDef);
+      if (!headerSet.has(header) || !normalized) {
+        return;
+      }
+      nextFilters[header] = normalized;
+    });
+  }
+  state.filters = nextFilters;
+
+  state.globalSearch = typeof view.globalSearch === "string" ? view.globalSearch : "";
+  globalSearchInput.value = state.globalSearch;
+
+  if (view.sort && typeof view.sort === "object") {
+    const { header, direction } = view.sort;
+    if (headerSet.has(header) && (direction === "asc" || direction === "desc")) {
+      state.sort = { header, direction };
+    } else {
+      state.sort = { header: null, direction: null };
+    }
+  }
+
+  if (typeof view.wordWrap === "boolean") {
+    state.wordWrap = view.wordWrap;
+  }
+  if (typeof view.hideEmptyCols === "boolean") {
+    state.hideEmptyCols = view.hideEmptyCols;
+  }
+
+  if (Array.isArray(view.groupByColumns)) {
+    const seen = new Set();
+    state.groupByColumns = view.groupByColumns.filter((header) => {
+      if (!headerSet.has(header) || seen.has(header)) {
+        return false;
+      }
+      seen.add(header);
+      return true;
+    });
+  }
+
+  state.expandedGroups.clear();
+  syncMenuCheckboxStates();
+  applyWordWrapClass();
+  renderGroupByChips();
+}
+
+function persistCurrentView() {
+  if (!state.fileName || !state.headers.length) {
+    return;
+  }
+
+  const views = readStorageJson(STORAGE_VIEWS_KEY, {});
+  const columnWidths = {};
+  state.headers.forEach((header) => {
+    if (Number.isFinite(state.columnWidths[header])) {
+      columnWidths[header] = state.columnWidths[header];
+    }
+  });
+
+  views[state.fileName] = {
+    headerOrder: [...state.headers],
+    columnWidths,
+    rowNumberWidth: state.rowNumberWidth,
+    filters: JSON.parse(JSON.stringify(state.filters)),
+    globalSearch: state.globalSearch,
+    sort: { ...state.sort },
+    groupByColumns: [...state.groupByColumns],
+    wordWrap: state.wordWrap,
+    hideEmptyCols: state.hideEmptyCols,
+    updatedAt: Date.now()
+  };
+
+  writeStorageJson(STORAGE_VIEWS_KEY, views);
+}
+
+function clearPersistedViewForCurrentFile() {
+  if (!state.fileName) {
+    return;
+  }
+
+  const views = readStorageJson(STORAGE_VIEWS_KEY, {});
+  if (!Object.prototype.hasOwnProperty.call(views, state.fileName)) {
+    return;
+  }
+
+  delete views[state.fileName];
+  writeStorageJson(STORAGE_VIEWS_KEY, views);
+}
 
 fileInput.addEventListener("change", onFileSelected);
 openFileBtn.addEventListener("click", openFilePicker);
@@ -95,6 +355,28 @@ firstRowHeaderMenuItem.addEventListener("click", () => {
 wordWrapMenuItem.addEventListener("click", () => {
   closeFileMenu();
   toggleWordWrap();
+});
+
+saveViewMenuItem.addEventListener("click", () => {
+  closeFileMenu();
+  if (!state.fileName || !state.headers.length) {
+    setStatus("Load a file before saving a view.", "warn");
+    return;
+  }
+
+  persistCurrentView();
+  setStatus(`Saved view for ${state.fileName}.`, "ok");
+});
+
+clearSavedViewMenuItem.addEventListener("click", () => {
+  closeFileMenu();
+  if (!state.fileName) {
+    setStatus("No file loaded.", "warn");
+    return;
+  }
+
+  clearPersistedViewForCurrentFile();
+  setStatus(`Cleared saved view for ${state.fileName}.`, "ok");
 });
 
 hideEmptyColsMenuItem.addEventListener("click", () => {
@@ -126,6 +408,7 @@ document.addEventListener("mouseup", onGroupDragEnd);
 groupByList.addEventListener("dragover", onGroupListDragOver);
 groupByList.addEventListener("drop", onGroupListDrop);
 
+loadPersistedPreferences();
 syncMenuCheckboxStates();
 applyWordWrapClass();
 updateSelectedActionsVisibility();
@@ -144,6 +427,8 @@ async function onFileSelected(event) {
     state.fileType = file.type || "";
 
     parseCurrentFile();
+    restoreViewForCurrentFile();
+    applyFilters();
     renderTable();
     setStatus(
       `Loaded ${state.rows.length} row${state.rows.length === 1 ? "" : "s"} from ${file.name}.`,
@@ -220,6 +505,7 @@ function onDocumentKeyDown(event) {
 
 function toggleFirstRowIsHeader() {
   state.firstRowIsHeader = !state.firstRowIsHeader;
+  persistPreferences();
   syncMenuCheckboxStates();
 
   if (!state.fileText) {
@@ -240,6 +526,8 @@ function toggleFirstRowIsHeader() {
 
 function toggleWordWrap() {
   state.wordWrap = !state.wordWrap;
+  persistPreferences();
+  persistCurrentView();
   syncMenuCheckboxStates();
   applyWordWrapClass();
   setStatus(`Word Wrap Fields: ${state.wordWrap ? "On" : "Off"}.`, "ok");
@@ -247,6 +535,8 @@ function toggleWordWrap() {
 
 function toggleHideEmptyCols() {
   state.hideEmptyCols = !state.hideEmptyCols;
+  persistPreferences();
+  persistCurrentView();
   syncMenuCheckboxStates();
   renderTable();
   setStatus(`Hide Empty Columns: ${state.hideEmptyCols ? "On" : "Off"}.`, "ok");
@@ -386,12 +676,15 @@ function stringifyCellValue(value) {
 
 function hydrateState(headers, rows) {
   state.headers = headers;
-  state.rows = rows.map((row, index) => ({ ...row, __rowId: String(index) }));
+  state.rows = rows.map((row, index) => ({ ...row, __rowId: String(index), __sourceIndex: index }));
   state.filters = {};
   state.globalSearch = "";
   state.filteredRows = state.rows;
   state.sort = { header: null, direction: null };
   state.selectedRowIds = new Set();
+  if (!Number.isFinite(state.rowNumberWidth)) {
+    state.rowNumberWidth = 72;
+  }
   globalSearchInput.value = "";
   ensureColumnWidths();
   updateSelectedActionsVisibility();
@@ -441,12 +734,25 @@ function resetState() {
   state.sort = { header: null, direction: null };
   state.selectedRowIds = new Set();
   state.columnWidths = {};
+  state.rowNumberWidth = 72;
   state.groupByColumns = [];
   state.expandedGroups.clear();
   globalSearchInput.value = "";
   renderGroupByChips();
   groupByZone.dataset.dropActive = "false";
   updateSelectedActionsVisibility();
+}
+
+function applyRowNumberWidth(width) {
+  const col = dataTable.querySelector("col.row-number-col");
+  if (col) {
+    col.style.width = `${width}px`;
+  }
+
+  const th = dataTable.querySelector("thead th.row-number-col");
+  if (th) {
+    th.style.width = `${width}px`;
+  }
 }
 
 function renderGroupByChips() {
@@ -540,11 +846,25 @@ function appendTableHeader(thead, visibleHeaders) {
   selectAllTh.appendChild(selectAll);
   headerRow.appendChild(selectAllTh);
 
+  const rowNumberTh = document.createElement("th");
+  rowNumberTh.className = "row-number-col";
+  rowNumberTh.style.width = `${state.rowNumberWidth}px`;
+  rowNumberTh.title = "Original row number";
+  rowNumberTh.textContent = "#";
+
+  const rowNumberResize = document.createElement("div");
+  rowNumberResize.className = "resize-handle row-number-resize";
+  rowNumberResize.dataset.header = "__rowNumber";
+  rowNumberResize.dataset.colIndex = "-2";
+  rowNumberResize.addEventListener("mousedown", onColumnResizeStart);
+  rowNumberTh.appendChild(rowNumberResize);
+  headerRow.appendChild(rowNumberTh);
+
   visibleHeaders.forEach((header) => {
     const th = document.createElement("th");
     th.style.width = `${state.columnWidths[header]}px`;
     th.dataset.header = header;
-    th.title = "Drag header to group area";
+    th.title = "Drag to reorder columns or drop into group area";
     th.addEventListener("mousedown", onGroupDragStart);
 
     const content = document.createElement("div");
@@ -554,7 +874,7 @@ function appendTableHeader(thead, visibleHeaders) {
     dragHandle.className = "col-drag-handle";
     dragHandle.dataset.colIndex = String(state.headers.indexOf(header));
     dragHandle.textContent = "\u22EE";
-    dragHandle.addEventListener("mousedown", onColDragStart);
+    dragHandle.addEventListener("mousedown", (e) => e.stopPropagation());
 
     const sortGlyph = document.createElement("button");
     sortGlyph.className = "col-sort-btn";
@@ -575,12 +895,20 @@ function appendTableHeader(thead, visibleHeaders) {
     title.className = "col-title";
     title.textContent = header;
 
+    const filterDef = normalizeFilterDefinition(state.filters[header]) || {
+      operator: "contains",
+      value: ""
+    };
+
+    const opSelect = createFilterOperatorSelect(header, filterDef.operator);
+
     const input = document.createElement("input");
     input.className = "filter-input";
     input.type = "text";
-    input.placeholder = "";
+    input.placeholder = filterOperatorNeedsValue(filterDef.operator) ? "" : "(no value needed)";
+    input.disabled = !filterOperatorNeedsValue(filterDef.operator);
     input.title = "Type filter text, then press Enter";
-    input.value = state.filters[header] || "";
+    input.value = filterDef.value || "";
     input.dataset.header = header;
     input.addEventListener("keydown", onFilterInputKeyDown);
 
@@ -592,6 +920,7 @@ function appendTableHeader(thead, visibleHeaders) {
 
     content.appendChild(controls);
     content.appendChild(title);
+    content.appendChild(opSelect);
     content.appendChild(input);
     content.appendChild(resizeHandle);
     th.appendChild(content);
@@ -614,6 +943,11 @@ function appendDataRow(tbody, row, visibleHeaders) {
   checkbox.addEventListener("change", onRowSelectToggle);
   selectTd.appendChild(checkbox);
   tr.appendChild(selectTd);
+
+  const rowNumberTd = document.createElement("td");
+  rowNumberTd.className = "row-number-cell";
+  rowNumberTd.textContent = String(row.__sourceIndex + 1);
+  tr.appendChild(rowNumberTd);
 
   visibleHeaders.forEach((header) => {
     const td = document.createElement("td");
@@ -686,6 +1020,11 @@ function renderGroupedView() {
   const selectionCol = document.createElement("col");
   selectionCol.className = "selection-col";
   colgroup.appendChild(selectionCol);
+
+  const rowNumberCol = document.createElement("col");
+  rowNumberCol.className = "row-number-col";
+  rowNumberCol.style.width = `${state.rowNumberWidth}px`;
+  colgroup.appendChild(rowNumberCol);
   visibleHeaders.forEach((header) => {
     const col = document.createElement("col");
     col.dataset.header = header;
@@ -733,6 +1072,11 @@ function renderTable() {
   selectionCol.className = "selection-col";
   colgroup.appendChild(selectionCol);
 
+  const rowNumberCol = document.createElement("col");
+  rowNumberCol.className = "row-number-col";
+  rowNumberCol.style.width = `${state.rowNumberWidth}px`;
+  colgroup.appendChild(rowNumberCol);
+
   visibleHeaders.forEach((header) => {
     const col = document.createElement("col");
     const index = state.headers.indexOf(header);
@@ -745,76 +1089,7 @@ function renderTable() {
   dataTable.appendChild(colgroup);
 
   const thead = document.createElement("thead");
-  const headerRow = document.createElement("tr");
-
-  const selectAllTh = document.createElement("th");
-  selectAllTh.className = "selection-col";
-  const selectAll = document.createElement("input");
-  selectAll.type = "checkbox";
-  selectAll.className = "select-all-checkbox";
-  selectAll.checked = areAllVisibleSelected();
-  selectAll.addEventListener("change", onToggleSelectAllVisible);
-  selectAllTh.appendChild(selectAll);
-  headerRow.appendChild(selectAllTh);
-
-  visibleHeaders.forEach((header) => {
-    const th = document.createElement("th");
-    th.style.width = `${state.columnWidths[header]}px`;
-    th.dataset.header = header;
-    th.title = "Drag header to group area";
-    th.addEventListener("mousedown", onGroupDragStart);
-    const content = document.createElement("div");
-    content.className = "header-content";
-
-    const dragHandle = document.createElement("div");
-    dragHandle.className = "col-drag-handle";
-    dragHandle.dataset.colIndex = String(state.headers.indexOf(header));
-    dragHandle.textContent = "\u22EE";
-    dragHandle.addEventListener("mousedown", onColDragStart);
-
-    const sortGlyph = document.createElement("button");
-    sortGlyph.className = "col-sort-btn";
-    sortGlyph.dataset.header = header;
-    sortGlyph.tabIndex = -1;
-    const sortDir = state.sort.header === header ? state.sort.direction : null;
-    sortGlyph.textContent = sortDir === "asc" ? "\u25B2" : sortDir === "desc" ? "\u25BC" : "\u25BC";
-    sortGlyph.classList.toggle("col-sort-active", sortDir !== null);
-    sortGlyph.title = sortDir === "asc" ? "Sorted ascending — click for descending" : sortDir === "desc" ? "Sorted descending — click to clear" : "Click to sort ascending";
-    sortGlyph.addEventListener("click", onSortClick);
-
-    const controls = document.createElement("div");
-    controls.className = "col-controls";
-    controls.appendChild(dragHandle);
-    controls.appendChild(sortGlyph);
-
-    const title = document.createElement("div");
-    title.className = "col-title";
-    title.textContent = header;
-
-    const input = document.createElement("input");
-    input.className = "filter-input";
-    input.type = "text";
-    input.placeholder = "";
-    input.title = "Type filter text, then press Enter";
-    input.value = state.filters[header] || "";
-    input.dataset.header = header;
-    input.addEventListener("keydown", onFilterInputKeyDown);
-
-    const resizeHandle = document.createElement("div");
-    resizeHandle.className = "resize-handle";
-    resizeHandle.dataset.header = header;
-    resizeHandle.dataset.colIndex = String(state.headers.indexOf(header));
-    resizeHandle.addEventListener("mousedown", onColumnResizeStart);
-
-    content.appendChild(controls);
-    content.appendChild(title);
-    content.appendChild(input);
-    content.appendChild(resizeHandle);
-    th.appendChild(content);
-    headerRow.appendChild(th);
-  });
-
-  thead.appendChild(headerRow);
+  appendTableHeader(thead, visibleHeaders);
   dataTable.appendChild(thead);
 
   const tbody = document.createElement("tbody");
@@ -831,6 +1106,11 @@ function renderTable() {
     checkbox.addEventListener("change", onRowSelectToggle);
     selectTd.appendChild(checkbox);
     tr.appendChild(selectTd);
+
+    const rowNumberTd = document.createElement("td");
+    rowNumberTd.className = "row-number-cell";
+    rowNumberTd.textContent = String(row.__sourceIndex + 1);
+    tr.appendChild(rowNumberTd);
 
     visibleHeaders.forEach((header) => {
       const td = document.createElement("td");
@@ -862,19 +1142,71 @@ function onFilterInputKeyDown(event) {
     return;
   }
 
-  if (value) {
-    state.filters[header] = value;
+  const current = normalizeFilterDefinition(state.filters[header]) || {
+    operator: "contains",
+    value: ""
+  };
+
+  if (filterOperatorNeedsValue(current.operator)) {
+    if (value) {
+      state.filters[header] = { ...current, value };
+    } else {
+      // Keep operator selection even when value is empty.
+      state.filters[header] = { ...current, value: "" };
+    }
   } else {
-    delete state.filters[header];
+    state.filters[header] = { ...current, value: "" };
   }
 
   event.preventDefault();
   applyFilters();
+  persistCurrentView();
+  renderTable();
+}
+
+function onFilterOperatorChange(event) {
+  const header = event.target.dataset.header;
+  const operator = event.target.value;
+  if (!header) {
+    return;
+  }
+
+  const previous = normalizeFilterDefinition(state.filters[header]) || {
+    operator: "contains",
+    value: ""
+  };
+
+  const next = {
+    operator,
+    value: filterOperatorNeedsValue(operator) ? previous.value : ""
+  };
+
+  // Always retain operator choice in state; empty value rules are inactive until text is entered.
+  state.filters[header] = next;
+
+  const input = findFilterInputByHeader(header);
+  if (input) {
+    input.disabled = !filterOperatorNeedsValue(operator);
+    input.placeholder = filterOperatorNeedsValue(operator) ? "" : "(no value needed)";
+    if (!filterOperatorNeedsValue(operator)) {
+      input.value = "";
+    }
+  }
+
+  applyFilters();
+  persistCurrentView();
   renderTable();
 }
 
 function applyFilters() {
-  const filters = Object.entries(state.filters);
+  const filters = Object.entries(state.filters)
+    .map(([header, def]) => [header, normalizeFilterDefinition(def)])
+    .filter(([, rule]) => {
+      if (!rule) {
+        return false;
+      }
+      return !filterOperatorNeedsValue(rule.operator) || rule.value.trim() !== "";
+    });
   const globalNeedle = state.globalSearch.trim().toLowerCase();
   const hasColumnFilters = filters.length > 0;
   const hasGlobalSearch = globalNeedle.length > 0;
@@ -886,9 +1218,8 @@ function applyFilters() {
   }
 
   state.filteredRows = state.rows.filter((row) => {
-    const columnsOk = !hasColumnFilters || filters.every(([header, filterText]) => {
-      const value = (row[header] || "").toLowerCase();
-      return value.includes(filterText.toLowerCase());
+    const columnsOk = !hasColumnFilters || filters.every(([header, rule]) => {
+      return evaluateFilterRule(row[header], rule);
     });
 
     if (!columnsOk) {
@@ -911,6 +1242,7 @@ function applyFilters() {
 function onGlobalSearchInput(event) {
   state.globalSearch = event.target.value || "";
   applyFilters();
+  persistCurrentView();
   renderTable();
 }
 
@@ -948,6 +1280,7 @@ function onSortClick(event) {
   }
 
   applyFilters();
+  persistCurrentView();
   renderTable();
 }
 
@@ -988,6 +1321,7 @@ function clearAllFilters() {
   state.globalSearch = "";
   globalSearchInput.value = "";
   state.filteredRows = state.rows;
+  persistCurrentView();
   renderTable();
   setStatus("All filters cleared.", "ok");
 }
@@ -1021,6 +1355,7 @@ function clearGroupBy() {
   state.expandedGroups.clear();
   renderGroupByChips();
   groupByZone.dataset.dropActive = "false";
+  persistCurrentView();
   renderTable();
 }
 
@@ -1029,7 +1364,7 @@ function onGroupDragStart(event) {
     return;
   }
 
-  const blocked = event.target.closest(".col-drag-handle, .col-sort-btn, .filter-input, .resize-handle, input, button");
+  const blocked = event.target.closest(".col-drag-handle, .col-sort-btn, .filter-input, .filter-operator, .resize-handle, input, button, select");
   if (blocked) {
     return;
   }
@@ -1045,6 +1380,7 @@ function onGroupDragStart(event) {
   groupDragState.active = true;
   groupDragState.header = header;
   groupDragState.insideDropZone = false;
+  groupDragState.toVisibleIndex = -1;
 
   const ghost = document.createElement("div");
   ghost.className = "col-drag-ghost";
@@ -1052,7 +1388,15 @@ function onGroupDragStart(event) {
   document.body.appendChild(ghost);
   groupDragState.ghostEl = ghost;
 
+  const indicator = document.createElement("div");
+  indicator.className = "col-drop-indicator";
+  document.body.appendChild(indicator);
+  groupDragState.indicatorEl = indicator;
+
   positionGroupDragGhost(event.clientX, event.clientY);
+  groupDragState.lastClientX = event.clientX;
+  updateHeaderReorderIndicator(event.clientX);
+  startHeaderDragAutoScroll();
   document.body.style.cursor = "grabbing";
   document.body.style.userSelect = "none";
 }
@@ -1063,6 +1407,7 @@ function onGroupDragMove(event) {
   }
 
   positionGroupDragGhost(event.clientX, event.clientY);
+  groupDragState.lastClientX = event.clientX;
 
   const zoneRect = groupByZone.getBoundingClientRect();
   const pad = 14;
@@ -1074,6 +1419,12 @@ function onGroupDragMove(event) {
 
   groupDragState.insideDropZone = inside;
   groupByZone.dataset.dropActive = inside ? "true" : "false";
+
+  if (inside) {
+    hideHeaderReorderIndicator();
+  } else {
+    updateHeaderReorderIndicator(event.clientX);
+  }
 }
 
 function onGroupDragEnd() {
@@ -1087,7 +1438,10 @@ function onGroupDragEnd() {
     }
     state.expandedGroups.clear();
     renderGroupByChips();
+    persistCurrentView();
     renderTable();
+  } else {
+    reorderColumnsFromHeaderDrag();
   }
 
   if (groupDragState.ghostEl) {
@@ -1095,12 +1449,153 @@ function onGroupDragEnd() {
     groupDragState.ghostEl = null;
   }
 
+  if (groupDragState.indicatorEl) {
+    groupDragState.indicatorEl.remove();
+    groupDragState.indicatorEl = null;
+  }
+
+  stopHeaderDragAutoScroll();
+
   groupDragState.active = false;
   groupDragState.header = null;
   groupDragState.insideDropZone = false;
+  groupDragState.toVisibleIndex = -1;
   groupByZone.dataset.dropActive = "false";
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
+}
+
+function updateHeaderReorderIndicator(clientX) {
+  const ths = Array.from(dataTable.querySelectorAll("thead th")).slice(1);
+  if (!ths.length || !groupDragState.indicatorEl) {
+    return;
+  }
+
+  let toIndex = ths.length;
+  let indicatorX = ths[ths.length - 1].getBoundingClientRect().right;
+
+  for (let i = 0; i < ths.length; i++) {
+    const rect = ths[i].getBoundingClientRect();
+    const mid = rect.left + rect.width / 2;
+    if (clientX <= mid) {
+      toIndex = i;
+      indicatorX = rect.left;
+      break;
+    }
+  }
+
+  groupDragState.toVisibleIndex = toIndex;
+
+  const tableRect = dataTable.getBoundingClientRect();
+  groupDragState.indicatorEl.style.left = `${indicatorX}px`;
+  groupDragState.indicatorEl.style.top = `${tableRect.top}px`;
+  groupDragState.indicatorEl.style.height = `${tableRect.height}px`;
+  groupDragState.indicatorEl.style.display = "block";
+}
+
+function hideHeaderReorderIndicator() {
+  if (!groupDragState.indicatorEl) {
+    return;
+  }
+  groupDragState.indicatorEl.style.display = "none";
+}
+
+function startHeaderDragAutoScroll() {
+  stopHeaderDragAutoScroll();
+
+  const step = () => {
+    if (!groupDragState.active || !tableScroll) {
+      groupDragState.autoScrollRaf = null;
+      return;
+    }
+
+    const rect = tableScroll.getBoundingClientRect();
+    const threshold = 44;
+    const maxStep = 22;
+    let delta = 0;
+
+    if (groupDragState.lastClientX < rect.left + threshold) {
+      const distance = rect.left + threshold - groupDragState.lastClientX;
+      const factor = Math.min(1, distance / threshold);
+      delta = -Math.ceil(factor * maxStep);
+    } else if (groupDragState.lastClientX > rect.right - threshold) {
+      const distance = groupDragState.lastClientX - (rect.right - threshold);
+      const factor = Math.min(1, distance / threshold);
+      delta = Math.ceil(factor * maxStep);
+    }
+
+    if (delta !== 0) {
+      const previous = tableScroll.scrollLeft;
+      tableScroll.scrollLeft += delta;
+
+      if (tableScroll.scrollLeft !== previous) {
+        if (!groupDragState.insideDropZone) {
+          updateHeaderReorderIndicator(groupDragState.lastClientX);
+        }
+      }
+    }
+
+    groupDragState.autoScrollRaf = requestAnimationFrame(step);
+  };
+
+  groupDragState.autoScrollRaf = requestAnimationFrame(step);
+}
+
+function stopHeaderDragAutoScroll() {
+  if (groupDragState.autoScrollRaf) {
+    cancelAnimationFrame(groupDragState.autoScrollRaf);
+    groupDragState.autoScrollRaf = null;
+  }
+}
+
+function reorderColumnsFromHeaderDrag() {
+  const draggedHeader = groupDragState.header;
+  const toVisibleIndex = groupDragState.toVisibleIndex;
+
+  if (!draggedHeader || toVisibleIndex < 0) {
+    return;
+  }
+
+  const visibleHeaders = getVisibleHeaders();
+  const fromVisibleIndex = visibleHeaders.indexOf(draggedHeader);
+  if (fromVisibleIndex < 0) {
+    return;
+  }
+
+  if (fromVisibleIndex === toVisibleIndex || fromVisibleIndex + 1 === toVisibleIndex) {
+    return;
+  }
+
+  const fromStateIndex = state.headers.indexOf(draggedHeader);
+  if (fromStateIndex < 0) {
+    return;
+  }
+
+  let targetStateIndex;
+  if (toVisibleIndex <= 0) {
+    targetStateIndex = state.headers.indexOf(visibleHeaders[0]);
+  } else if (toVisibleIndex >= visibleHeaders.length) {
+    targetStateIndex = state.headers.indexOf(visibleHeaders[visibleHeaders.length - 1]) + 1;
+  } else {
+    targetStateIndex = state.headers.indexOf(visibleHeaders[toVisibleIndex]);
+  }
+
+  if (targetStateIndex < 0) {
+    return;
+  }
+
+  const headers = [...state.headers];
+  const [moved] = headers.splice(fromStateIndex, 1);
+  const insertAt = targetStateIndex > fromStateIndex ? targetStateIndex - 1 : targetStateIndex;
+
+  if (insertAt === fromStateIndex) {
+    return;
+  }
+
+  headers.splice(insertAt, 0, moved);
+  state.headers = headers;
+  persistCurrentView();
+  renderTable();
 }
 
 function onGroupChipDragStart(event) {
@@ -1162,6 +1657,7 @@ function finishGroupChipReorder() {
   state.groupByColumns = next;
   state.expandedGroups.clear();
   renderGroupByChips();
+  persistCurrentView();
   renderTable();
 }
 
@@ -1175,6 +1671,7 @@ function onRemoveGroupField(event) {
   state.groupByColumns = state.groupByColumns.filter((h) => h !== header);
   state.expandedGroups.clear();
   renderGroupByChips();
+  persistCurrentView();
   renderTable();
 }
 
@@ -1284,7 +1781,7 @@ function onColumnResizeStart(event) {
   resizeState.activeHeader = header;
   resizeState.activeIndex = Number.isNaN(index) ? state.headers.indexOf(header) : index;
   resizeState.startX = event.clientX;
-  resizeState.startWidth = state.columnWidths[header] || 160;
+  resizeState.startWidth = header === "__rowNumber" ? state.rowNumberWidth : state.columnWidths[header] || 160;
   document.body.style.cursor = "col-resize";
   document.body.style.userSelect = "none";
 }
@@ -1301,7 +1798,15 @@ function onColumnResizeMove(event) {
 
   event.preventDefault();
   const delta = event.clientX - resizeState.startX;
+  if (resizeState.activeHeader === "__rowNumber") {
+    const nextWidth = Math.max(24, resizeState.startWidth + delta);
+    state.rowNumberWidth = nextWidth;
+    applyRowNumberWidth(nextWidth);
+    return;
+  }
+
   const nextWidth = Math.max(70, resizeState.startWidth + delta);
+
   state.columnWidths[resizeState.activeHeader] = nextWidth;
   applyColumnWidth(resizeState.activeIndex, nextWidth);
 }
@@ -1318,6 +1823,7 @@ function onColumnResizeStop() {
 
   resizeState.activeHeader = null;
   resizeState.activeIndex = -1;
+  persistCurrentView();
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
 }
