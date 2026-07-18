@@ -1251,6 +1251,136 @@ async function renderTable(options = {}) {
   updateMeta();
 }
 
+function moveHeaderToVisiblePosition(draggedHeader, targetVisibleIndex) {
+  if (!draggedHeader || targetVisibleIndex < 0) {
+    return null;
+  }
+
+  const visibleHeaders = getVisibleHeaders();
+  const fromVisibleIndex = visibleHeaders.indexOf(draggedHeader);
+  if (fromVisibleIndex < 0) {
+    return null;
+  }
+
+  const clampedTargetIndex = Math.max(0, Math.min(targetVisibleIndex, visibleHeaders.length));
+  if (fromVisibleIndex === clampedTargetIndex || fromVisibleIndex + 1 === clampedTargetIndex) {
+    return null;
+  }
+
+  const fromStateIndex = state.headers.indexOf(draggedHeader);
+  if (fromStateIndex < 0) {
+    return null;
+  }
+
+  let targetStateIndex;
+  if (clampedTargetIndex === 0) {
+    targetStateIndex = state.headers.indexOf(visibleHeaders[0]);
+  } else if (clampedTargetIndex >= visibleHeaders.length) {
+    targetStateIndex = state.headers.indexOf(visibleHeaders[visibleHeaders.length - 1]) + 1;
+  } else {
+    targetStateIndex = state.headers.indexOf(visibleHeaders[clampedTargetIndex]);
+  }
+
+  if (targetStateIndex < 0) {
+    return null;
+  }
+
+  const headers = [...state.headers];
+  const [moved] = headers.splice(fromStateIndex, 1);
+  const insertAt = targetStateIndex > fromStateIndex ? targetStateIndex - 1 : targetStateIndex;
+  if (insertAt === fromStateIndex) {
+    return null;
+  }
+
+  headers.splice(insertAt, 0, moved);
+  state.headers = headers;
+
+  return {
+    header: moved,
+    fromVisibleIndex,
+    targetVisibleIndex: clampedTargetIndex,
+    visibleCount: visibleHeaders.length
+  };
+}
+
+function syncRenderedColumnMetadata() {
+  const renderedHeaders = Array.from(dataTable.querySelectorAll("thead th[data-header]"));
+  renderedHeaders.forEach((th) => {
+    const header = th.dataset.header;
+    const stateIndex = state.headers.indexOf(header);
+    th.style.width = `${state.columnWidths[header]}px`;
+
+    const dragHandle = th.querySelector(".col-drag-handle");
+    if (dragHandle) {
+      dragHandle.dataset.colIndex = String(stateIndex);
+    }
+
+    const resizeHandle = th.querySelector(".resize-handle");
+    if (resizeHandle) {
+      resizeHandle.dataset.colIndex = String(stateIndex);
+    }
+  });
+
+  const renderedCols = Array.from(dataTable.querySelectorAll("col[data-header]"));
+  renderedCols.forEach((col) => {
+    const header = col.dataset.header;
+    col.dataset.colIndex = String(state.headers.indexOf(header));
+    col.style.width = `${state.columnWidths[header]}px`;
+  });
+}
+
+function moveRenderedColumnNodes(fromVisibleIndex, targetVisibleIndex, visibleCount) {
+  const headerRow = dataTable.querySelector("thead tr");
+  const colgroup = dataTable.querySelector("colgroup");
+
+  if (!headerRow || !colgroup) {
+    return false;
+  }
+
+  const moveChild = (parent, offset) => {
+    const fromChildIndex = fromVisibleIndex + offset;
+    const movedNode = parent.children[fromChildIndex];
+    if (!movedNode) {
+      return false;
+    }
+
+    const referenceNode = targetVisibleIndex >= visibleCount ? null : parent.children[targetVisibleIndex + offset] || null;
+    parent.insertBefore(movedNode, referenceNode);
+    return true;
+  };
+
+  if (!moveChild(colgroup, 2) || !moveChild(headerRow, 2)) {
+    return false;
+  }
+
+  const bodyRows = Array.from(dataTable.querySelectorAll("tbody tr"));
+  bodyRows.forEach((row) => {
+    if (row.children.length <= fromVisibleIndex + 2) {
+      return;
+    }
+
+    const movedNode = row.children[fromVisibleIndex + 2];
+    const referenceNode = targetVisibleIndex >= visibleCount ? null : row.children[targetVisibleIndex + 2] || null;
+    row.insertBefore(movedNode, referenceNode);
+  });
+
+  syncRenderedColumnMetadata();
+  return true;
+}
+
+function applyColumnReorder(draggedHeader, targetVisibleIndex) {
+  const move = moveHeaderToVisiblePosition(draggedHeader, targetVisibleIndex);
+  if (!move) {
+    return;
+  }
+
+  persistCurrentView();
+
+  if (!moveRenderedColumnNodes(move.fromVisibleIndex, move.targetVisibleIndex, move.visibleCount)) {
+    renderTable();
+  }
+}
+
 function applyWordWrapClass() {
   dataTable.classList.remove("wrap", "no-wrap");
   dataTable.classList.add(state.wordWrap ? "wrap" : "no-wrap");
@@ -1608,7 +1738,7 @@ function onGroupDragEnd() {
 }
 
 function updateHeaderReorderIndicator(clientX) {
-  const ths = Array.from(dataTable.querySelectorAll("thead th")).slice(1);
+  const ths = Array.from(dataTable.querySelectorAll("thead th[data-header]"));
   if (!ths.length || !groupDragState.indicatorEl) {
     return;
   }
@@ -1694,50 +1824,7 @@ function reorderColumnsFromHeaderDrag() {
   const draggedHeader = groupDragState.header;
   const toVisibleIndex = groupDragState.toVisibleIndex;
 
-  if (!draggedHeader || toVisibleIndex < 0) {
-    return;
-  }
-
-  const visibleHeaders = getVisibleHeaders();
-  const fromVisibleIndex = visibleHeaders.indexOf(draggedHeader);
-  if (fromVisibleIndex < 0) {
-    return;
-  }
-
-  if (fromVisibleIndex === toVisibleIndex || fromVisibleIndex + 1 === toVisibleIndex) {
-    return;
-  }
-
-  const fromStateIndex = state.headers.indexOf(draggedHeader);
-  if (fromStateIndex < 0) {
-    return;
-  }
-
-  let targetStateIndex;
-  if (toVisibleIndex <= 0) {
-    targetStateIndex = state.headers.indexOf(visibleHeaders[0]);
-  } else if (toVisibleIndex >= visibleHeaders.length) {
-    targetStateIndex = state.headers.indexOf(visibleHeaders[visibleHeaders.length - 1]) + 1;
-  } else {
-    targetStateIndex = state.headers.indexOf(visibleHeaders[toVisibleIndex]);
-  }
-
-  if (targetStateIndex < 0) {
-    return;
-  }
-
-  const headers = [...state.headers];
-  const [moved] = headers.splice(fromStateIndex, 1);
-  const insertAt = targetStateIndex > fromStateIndex ? targetStateIndex - 1 : targetStateIndex;
-
-  if (insertAt === fromStateIndex) {
-    return;
-  }
-
-  headers.splice(insertAt, 0, moved);
-  state.headers = headers;
-  persistCurrentView();
-  renderTable();
+  applyColumnReorder(draggedHeader, toVisibleIndex);
 }
 
 function onGroupChipDragStart(event) {
@@ -1999,7 +2086,7 @@ function onColDragStart(event) {
 function updateColDragIndicator(clientX) {
   colDragState.lastClientX = clientX;
 
-  const ths = Array.from(dataTable.querySelectorAll("thead th")).slice(1);
+  const ths = Array.from(dataTable.querySelectorAll("thead th[data-header]"));
   if (!ths.length) {
     return;
   }
@@ -2045,16 +2132,12 @@ function finishColDrag() {
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
 
-  if (fromIndex < 0 || fromIndex === toIndex || fromIndex + 1 === toIndex) {
+  if (fromIndex < 0) {
     return;
   }
 
-  const headers = [...state.headers];
-  const [moved] = headers.splice(fromIndex, 1);
-  const insertAt = toIndex > fromIndex ? toIndex - 1 : toIndex;
-  headers.splice(insertAt, 0, moved);
-  state.headers = headers;
-  renderTable();
+  const draggedHeader = state.headers[fromIndex];
+  applyColumnReorder(draggedHeader, toIndex);
 }
 
 function startColDragAutoScroll() {
