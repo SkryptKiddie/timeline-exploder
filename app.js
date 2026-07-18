@@ -20,15 +20,20 @@ const copyVisibleBtn = document.getElementById("copyVisibleBtn");
 const clearFiltersBtn = document.getElementById("clearFiltersBtn");
 const fileMenuBtn = document.getElementById("fileMenuBtn");
 const fileMenu = document.getElementById("fileMenu");
+const optionsMenuBtn = document.getElementById("optionsMenuBtn");
+const optionsMenu = document.getElementById("optionsMenu");
 const openFileMenuItem = document.getElementById("openFileMenuItem");
+const closeFileMenuItem = document.getElementById("closeFileMenuItem");
 const firstRowHeaderMenuItem = document.getElementById("firstRowHeaderMenuItem");
 const wordWrapMenuItem = document.getElementById("wordWrapMenuItem");
-const saveViewMenuItem = document.getElementById("saveViewMenuItem");
-const clearSavedViewMenuItem = document.getElementById("clearSavedViewMenuItem");
 const clearFiltersMenuItem = document.getElementById("clearFiltersMenuItem");
 const copySelectedMenuItem = document.getElementById("copySelectedMenuItem");
 const copyVisibleMenuItem = document.getElementById("copyVisibleMenuItem");
 const hideEmptyColsMenuItem = document.getElementById("hideEmptyColsMenuItem");
+const columnContextMenu = document.getElementById("columnContextMenu");
+const contextMenuPin = document.getElementById("contextMenuPin");
+const contextMenuUnpin = document.getElementById("contextMenuUnpin");
+const contextMenuHide = document.getElementById("contextMenuHide");
 
 const state = {
   headers: [],
@@ -48,7 +53,9 @@ const state = {
   fileType: "",
   visibleRowIds: [],
   groupByColumns: [], // Ordered list of columns used for drill-down grouping
-  expandedGroups: new Set() // Track which group values are expanded
+  expandedGroups: new Set(), // Track which group values are expanded
+  pinnedColumns: [], // Ordered list of pinned column headers
+  hiddenColumns: new Set() // Set of hidden column headers
 };
 
 const resizeState = {
@@ -84,8 +91,12 @@ const groupChipDragState = {
   toIndex: -1
 };
 
-const STORAGE_PREFS_KEY = "timelineExploder:prefs";
-const STORAGE_VIEWS_KEY = "timelineExploder:views";
+const columnContextState = {
+  header: null,
+  clientX: 0,
+  clientY: 0
+};
+
 const RENDER_BATCH_SIZE = 350;
 const RENDER_PROGRESS_MIN_ROWS = 1200;
 
@@ -177,173 +188,6 @@ function evaluateFilterRule(rawValue, filterDef) {
   }
 }
 
-function readStorageJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) {
-      return fallback;
-    }
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStorageJson(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Ignore storage write failures (private mode/quota)
-  }
-}
-
-function loadPersistedPreferences() {
-  const prefs = readStorageJson(STORAGE_PREFS_KEY, {});
-
-  if (typeof prefs.firstRowIsHeader === "boolean") {
-    state.firstRowIsHeader = prefs.firstRowIsHeader;
-  }
-  if (typeof prefs.wordWrap === "boolean") {
-    state.wordWrap = prefs.wordWrap;
-  }
-  if (typeof prefs.hideEmptyCols === "boolean") {
-    state.hideEmptyCols = prefs.hideEmptyCols;
-  }
-}
-
-function persistPreferences() {
-  writeStorageJson(STORAGE_PREFS_KEY, {
-    firstRowIsHeader: state.firstRowIsHeader,
-    wordWrap: state.wordWrap,
-    hideEmptyCols: state.hideEmptyCols
-  });
-}
-
-function restoreViewForCurrentFile() {
-  if (!state.fileName || !state.headers.length) {
-    renderGroupByChips();
-    return;
-  }
-
-  const views = readStorageJson(STORAGE_VIEWS_KEY, {});
-  const view = views[state.fileName];
-  if (!view || typeof view !== "object") {
-    renderGroupByChips();
-    return;
-  }
-
-  const headerSet = new Set(state.headers);
-
-  if (Array.isArray(view.headerOrder)) {
-    const ordered = view.headerOrder.filter((header) => headerSet.has(header));
-    const leftovers = state.headers.filter((header) => !ordered.includes(header));
-    state.headers = [...ordered, ...leftovers];
-  }
-
-  if (view.columnWidths && typeof view.columnWidths === "object") {
-    Object.entries(view.columnWidths).forEach(([header, width]) => {
-      if (headerSet.has(header) && Number.isFinite(width)) {
-        state.columnWidths[header] = Math.max(50, Math.min(1000, Number(width)));
-      }
-    });
-  }
-
-  if (Number.isFinite(view.rowNumberWidth)) {
-    state.rowNumberWidth = Math.max(48, Math.min(240, Number(view.rowNumberWidth)));
-  }
-
-  const nextFilters = {};
-  if (view.filters && typeof view.filters === "object") {
-    Object.entries(view.filters).forEach(([header, filterDef]) => {
-      const normalized = normalizeFilterDefinition(filterDef);
-      if (!headerSet.has(header) || !normalized) {
-        return;
-      }
-      nextFilters[header] = normalized;
-    });
-  }
-  state.filters = nextFilters;
-
-  state.globalSearch = typeof view.globalSearch === "string" ? view.globalSearch : "";
-  globalSearchInput.value = state.globalSearch;
-
-  if (view.sort && typeof view.sort === "object") {
-    const { header, direction } = view.sort;
-    if (headerSet.has(header) && (direction === "asc" || direction === "desc")) {
-      state.sort = { header, direction };
-    } else {
-      state.sort = { header: null, direction: null };
-    }
-  }
-
-  if (typeof view.wordWrap === "boolean") {
-    state.wordWrap = view.wordWrap;
-  }
-  if (typeof view.hideEmptyCols === "boolean") {
-    state.hideEmptyCols = view.hideEmptyCols;
-  }
-
-  if (Array.isArray(view.groupByColumns)) {
-    const seen = new Set();
-    state.groupByColumns = view.groupByColumns.filter((header) => {
-      if (!headerSet.has(header) || seen.has(header)) {
-        return false;
-      }
-      seen.add(header);
-      return true;
-    });
-  }
-
-  state.expandedGroups.clear();
-  syncMenuCheckboxStates();
-  applyWordWrapClass();
-  renderGroupByChips();
-}
-
-function persistCurrentView() {
-  if (!state.fileName || !state.headers.length) {
-    return;
-  }
-
-  const views = readStorageJson(STORAGE_VIEWS_KEY, {});
-  const columnWidths = {};
-  state.headers.forEach((header) => {
-    if (Number.isFinite(state.columnWidths[header])) {
-      columnWidths[header] = state.columnWidths[header];
-    }
-  });
-
-  views[state.fileName] = {
-    headerOrder: [...state.headers],
-    columnWidths,
-    rowNumberWidth: state.rowNumberWidth,
-    filters: JSON.parse(JSON.stringify(state.filters)),
-    globalSearch: state.globalSearch,
-    sort: { ...state.sort },
-    groupByColumns: [...state.groupByColumns],
-    wordWrap: state.wordWrap,
-    hideEmptyCols: state.hideEmptyCols,
-    updatedAt: Date.now()
-  };
-
-  writeStorageJson(STORAGE_VIEWS_KEY, views);
-}
-
-function clearPersistedViewForCurrentFile() {
-  if (!state.fileName) {
-    return;
-  }
-
-  const views = readStorageJson(STORAGE_VIEWS_KEY, {});
-  if (!Object.prototype.hasOwnProperty.call(views, state.fileName)) {
-    return;
-  }
-
-  delete views[state.fileName];
-  writeStorageJson(STORAGE_VIEWS_KEY, views);
-}
-
 fileInput.addEventListener("change", onFileSelected);
 openFileBtn.addEventListener("click", openFilePicker);
 copySelectedBtn.addEventListener("click", copySelectedRows);
@@ -351,63 +195,68 @@ copyVisibleBtn.addEventListener("click", copyVisibleRows);
 clearFiltersBtn.addEventListener("click", clearAllFilters);
 clearGroupByBtn.addEventListener("click", clearGroupBy);
 fileMenuBtn.addEventListener("click", toggleFileMenu);
+optionsMenuBtn.addEventListener("click", toggleOptionsMenu);
 globalSearchInput.addEventListener("input", onGlobalSearchInput);
 
 openFileMenuItem.addEventListener("click", () => {
-  closeFileMenu();
+  closeAllMenus();
   openFilePicker();
 });
 
-firstRowHeaderMenuItem.addEventListener("click", () => {
-  closeFileMenu();
-  toggleFirstRowIsHeader();
-});
-
-wordWrapMenuItem.addEventListener("click", () => {
-  closeFileMenu();
-  toggleWordWrap();
-});
-
-saveViewMenuItem.addEventListener("click", () => {
-  closeFileMenu();
-  if (!state.fileName || !state.headers.length) {
-    setStatus("Load a file before saving a view.", "warn");
-    return;
-  }
-
-  persistCurrentView();
-  setStatus(`Saved view for ${state.fileName}.`, "ok");
-});
-
-clearSavedViewMenuItem.addEventListener("click", () => {
-  closeFileMenu();
-  if (!state.fileName) {
-    setStatus("No file loaded.", "warn");
-    return;
-  }
-
-  clearPersistedViewForCurrentFile();
-  setStatus(`Cleared saved view for ${state.fileName}.`, "ok");
-});
-
-hideEmptyColsMenuItem.addEventListener("click", () => {
-  closeFileMenu();
-  toggleHideEmptyCols();
-});
-
-clearFiltersMenuItem.addEventListener("click", () => {
-  closeFileMenu();
-  clearAllFilters();
+closeFileMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  closeFile();
 });
 
 copySelectedMenuItem.addEventListener("click", () => {
-  closeFileMenu();
+  closeAllMenus();
   copySelectedRows();
 });
 
 copyVisibleMenuItem.addEventListener("click", () => {
-  closeFileMenu();
+  closeAllMenus();
   copyVisibleRows();
+});
+
+firstRowHeaderMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  toggleFirstRowIsHeader();
+});
+
+wordWrapMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  toggleWordWrap();
+});
+
+hideEmptyColsMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  toggleHideEmptyCols();
+});
+
+clearFiltersMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  clearAllFilters();
+});
+
+contextMenuPin.addEventListener("click", () => {
+  if (columnContextState.header) {
+    pinColumn(columnContextState.header);
+  }
+  hideColumnContextMenu();
+});
+
+contextMenuUnpin.addEventListener("click", () => {
+  if (columnContextState.header) {
+    unpinColumn(columnContextState.header);
+  }
+  hideColumnContextMenu();
+});
+
+contextMenuHide.addEventListener("click", () => {
+  if (columnContextState.header) {
+    hideColumn(columnContextState.header);
+  }
+  hideColumnContextMenu();
 });
 
 document.addEventListener("click", onDocumentClick);
@@ -419,7 +268,6 @@ document.addEventListener("mouseup", onGroupDragEnd);
 groupByList.addEventListener("dragover", onGroupListDragOver);
 groupByList.addEventListener("drop", onGroupListDrop);
 
-loadPersistedPreferences();
 syncMenuCheckboxStates();
 applyWordWrapClass();
 updateSelectedActionsVisibility();
@@ -442,10 +290,7 @@ async function onFileSelected(event) {
     await nextFrame();
     parseCurrentFile();
 
-    showLoadingProgress(55, "Restoring saved view...");
-    restoreViewForCurrentFile();
-
-    showLoadingProgress(72, "Applying filters...");
+    showLoadingProgress(55, "Applying filters...");
     applyFilters();
 
     await renderTable({
@@ -489,10 +334,17 @@ function openFilePicker() {
 
 function toggleFileMenu() {
   const isOpen = !fileMenu.classList.contains("hidden");
-  if (isOpen) {
-    closeFileMenu();
-  } else {
+  closeAllMenus();
+  if (!isOpen) {
     openFileMenu();
+  }
+}
+
+function toggleOptionsMenu() {
+  const isOpen = !optionsMenu.classList.contains("hidden");
+  closeAllMenus();
+  if (!isOpen) {
+    openOptionsMenu();
   }
 }
 
@@ -506,34 +358,58 @@ function closeFileMenu() {
   fileMenuBtn.setAttribute("aria-expanded", "false");
 }
 
+function openOptionsMenu() {
+  optionsMenu.classList.remove("hidden");
+  optionsMenuBtn.setAttribute("aria-expanded", "true");
+}
+
+function closeOptionsMenu() {
+  optionsMenu.classList.add("hidden");
+  optionsMenuBtn.setAttribute("aria-expanded", "false");
+}
+
+function closeAllMenus() {
+  closeFileMenu();
+  closeOptionsMenu();
+}
+
 function onDocumentClick(event) {
-  if (!fileMenu || fileMenu.classList.contains("hidden")) {
+  const anyOpen = !fileMenu.classList.contains("hidden") || !optionsMenu.classList.contains("hidden");
+  if (!anyOpen) {
+    hideColumnContextMenu();
     return;
   }
 
   const clickedInsideMenu = event.target.closest("[data-menu-container]");
   if (!clickedInsideMenu) {
-    closeFileMenu();
+    closeAllMenus();
   }
+  hideColumnContextMenu();
 }
 
 function onDocumentKeyDown(event) {
   const isOpenShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "o";
   if (isOpenShortcut) {
     event.preventDefault();
-    closeFileMenu();
+    closeAllMenus();
     openFilePicker();
     return;
   }
 
   if (event.key === "Escape") {
-    closeFileMenu();
+    closeAllMenus();
+    hideColumnContextMenu();
   }
+}
+
+function onColumnHeaderContextMenu(event, header) {
+  event.preventDefault();
+  event.stopPropagation();
+  showColumnContextMenu(header, event.clientX, event.clientY);
 }
 
 function toggleFirstRowIsHeader() {
   state.firstRowIsHeader = !state.firstRowIsHeader;
-  persistPreferences();
   syncMenuCheckboxStates();
 
   if (!state.fileText) {
@@ -554,8 +430,6 @@ function toggleFirstRowIsHeader() {
 
 function toggleWordWrap() {
   state.wordWrap = !state.wordWrap;
-  persistPreferences();
-  persistCurrentView();
   syncMenuCheckboxStates();
   applyWordWrapClass();
   setStatus(`Word Wrap Fields: ${state.wordWrap ? "On" : "Off"}.`, "ok");
@@ -563,21 +437,24 @@ function toggleWordWrap() {
 
 function toggleHideEmptyCols() {
   state.hideEmptyCols = !state.hideEmptyCols;
-  persistPreferences();
-  persistCurrentView();
   syncMenuCheckboxStates();
   renderTable();
   setStatus(`Hide Empty Columns: ${state.hideEmptyCols ? "On" : "Off"}.`, "ok");
 }
 
 function getVisibleHeaders() {
-  if (!state.hideEmptyCols) {
-    return state.headers;
-  }
+  const unpinned = state.headers.filter((header) => {
+    if (state.hiddenColumns.has(header)) {
+      return false;
+    }
+    if (!state.hideEmptyCols) {
+      return true;
+    }
+    return state.rows.some((row) => (row[header] || "").trim() !== "");
+  });
 
-  return state.headers.filter((header) =>
-    state.rows.some((row) => (row[header] || "").trim() !== "")
-  );
+  const pinned = state.pinnedColumns.filter((header) => !state.hiddenColumns.has(header));
+  return [...pinned, ...unpinned.filter((h) => !pinned.includes(h))];
 }
 
 function syncMenuCheckboxStates() {
@@ -767,10 +644,22 @@ function resetState() {
   state.rowNumberWidth = 72;
   state.groupByColumns = [];
   state.expandedGroups.clear();
+  state.pinnedColumns = [];
+  state.hiddenColumns.clear();
   globalSearchInput.value = "";
   renderGroupByChips();
   groupByZone.dataset.dropActive = "false";
   updateSelectedActionsVisibility();
+}
+
+function closeFile() {
+  state.fileText = "";
+  state.fileName = "";
+  state.fileType = "";
+  resetState();
+  tableZone.classList.add("hidden");
+  dataTable.innerHTML = "";
+  setStatus("File closed.", "ok");
 }
 
 function applyRowNumberWidth(width) {
@@ -896,6 +785,12 @@ function appendTableHeader(thead, visibleHeaders) {
     th.dataset.header = header;
     th.title = "Drag to reorder columns or drop into group area";
     th.addEventListener("mousedown", onGroupDragStart);
+    th.addEventListener("contextmenu", (e) => onColumnHeaderContextMenu(e, header));
+
+    if (state.pinnedColumns.includes(header)) {
+      th.classList.add("pinned-col");
+      th.style.left = `${calculatePinnedColumnLeftOffset(header)}px`;
+    }
 
     const content = document.createElement("div");
     content.className = "header-content";
@@ -982,6 +877,10 @@ function appendDataRow(tbody, row, visibleHeaders) {
   visibleHeaders.forEach((header) => {
     const td = document.createElement("td");
     td.textContent = row[header] || "";
+    if (state.pinnedColumns.includes(header)) {
+      td.classList.add("pinned-cell");
+      td.style.left = `${calculatePinnedColumnLeftOffset(header)}px`;
+    }
     tr.appendChild(td);
   });
 
@@ -1374,11 +1273,65 @@ function applyColumnReorder(draggedHeader, targetVisibleIndex) {
     return;
   }
 
-  persistCurrentView();
 
   if (!moveRenderedColumnNodes(move.fromVisibleIndex, move.targetVisibleIndex, move.visibleCount)) {
     renderTable();
   }
+}
+
+function calculatePinnedColumnLeftOffset(header) {
+  let leftOffset = state.rowNumberWidth + 16;
+  for (const pinnedHeader of state.pinnedColumns) {
+    if (pinnedHeader === header) {
+      return leftOffset;
+    }
+    leftOffset += state.columnWidths[pinnedHeader] || 160;
+  }
+  return leftOffset;
+}
+
+function pinColumn(header) {
+  if (!state.headers.includes(header) || state.pinnedColumns.includes(header)) {
+    return;
+  }
+  state.pinnedColumns.push(header);
+  renderTable();
+}
+
+function unpinColumn(header) {
+  const index = state.pinnedColumns.indexOf(header);
+  if (index >= 0) {
+    state.pinnedColumns.splice(index, 1);
+    renderTable();
+  }
+}
+
+function hideColumn(header) {
+  if (!state.headers.includes(header)) {
+    return;
+  }
+  state.hiddenColumns.add(header);
+  state.pinnedColumns = state.pinnedColumns.filter((h) => h !== header);
+  renderTable();
+}
+
+function showColumnContextMenu(header, clientX, clientY) {
+  columnContextState.header = header;
+  columnContextState.clientX = clientX;
+  columnContextState.clientY = clientY;
+
+  columnContextMenu.classList.remove("hidden");
+  columnContextMenu.style.left = `${clientX}px`;
+  columnContextMenu.style.top = `${clientY}px`;
+
+  const isPinned = state.pinnedColumns.includes(header);
+  contextMenuPin.classList.toggle("hidden", isPinned);
+  contextMenuUnpin.classList.toggle("hidden", !isPinned);
+}
+
+function hideColumnContextMenu() {
+  columnContextMenu.classList.add("hidden");
+  columnContextState.header = null;
 }
 
 function applyWordWrapClass() {
@@ -1416,7 +1369,6 @@ function onFilterInputKeyDown(event) {
 
   event.preventDefault();
   applyFilters();
-  persistCurrentView();
   renderTable();
 }
 
@@ -1450,7 +1402,6 @@ function onFilterOperatorChange(event) {
   }
 
   applyFilters();
-  persistCurrentView();
   renderTable();
 }
 
@@ -1510,7 +1461,6 @@ function scheduleGlobalSearchApply() {
   globalSearchTimer = setTimeout(() => {
     globalSearchTimer = null;
     applyFilters();
-    persistCurrentView();
     renderTable();
   }, 160);
 }
@@ -1549,7 +1499,6 @@ function onSortClick(event) {
   }
 
   applyFilters();
-  persistCurrentView();
   renderTable();
 }
 
@@ -1591,9 +1540,9 @@ function clearAllFilters() {
   }
   state.filters = {};
   state.globalSearch = "";
+  state.hiddenColumns.clear();
   globalSearchInput.value = "";
   applyFilters();
-  persistCurrentView();
   renderTable();
   setStatus("All filters cleared.", "ok");
 }
@@ -1627,7 +1576,6 @@ function clearGroupBy() {
   state.expandedGroups.clear();
   renderGroupByChips();
   groupByZone.dataset.dropActive = "false";
-  persistCurrentView();
   renderTable();
 }
 
@@ -1710,7 +1658,6 @@ function onGroupDragEnd() {
     }
     state.expandedGroups.clear();
     renderGroupByChips();
-    persistCurrentView();
     renderTable();
   } else {
     reorderColumnsFromHeaderDrag();
@@ -1886,7 +1833,6 @@ function finishGroupChipReorder() {
   state.groupByColumns = next;
   state.expandedGroups.clear();
   renderGroupByChips();
-  persistCurrentView();
   renderTable();
 }
 
@@ -1900,7 +1846,6 @@ function onRemoveGroupField(event) {
   state.groupByColumns = state.groupByColumns.filter((h) => h !== header);
   state.expandedGroups.clear();
   renderGroupByChips();
-  persistCurrentView();
   renderTable();
 }
 
@@ -2052,7 +1997,6 @@ function onColumnResizeStop() {
 
   resizeState.activeHeader = null;
   resizeState.activeIndex = -1;
-  persistCurrentView();
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
 }

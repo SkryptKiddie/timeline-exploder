@@ -17,6 +17,20 @@
               </button>
               <div id="fileMenu" class="menu-dropdown hidden" role="menu" aria-labelledby="fileMenuBtn">
                 <button id="openFileMenuItem" class="menu-action" type="button" role="menuitem">Open...</button>
+                <button id="closeFileMenuItem" class="menu-action" type="button" role="menuitem">Close File</button>
+                <button id="copySelectedMenuItem" class="menu-action hidden" type="button" role="menuitem">
+                  Copy Selected Rows
+                </button>
+                <button id="copyVisibleMenuItem" class="menu-action" type="button" role="menuitem">
+                  Copy Visible Rows
+                </button>
+              </div>
+            </div>
+            <div class="menu-item" data-menu-container>
+              <button id="optionsMenuBtn" class="menu-button" type="button" aria-haspopup="true" aria-expanded="false">
+                Options
+              </button>
+              <div id="optionsMenu" class="menu-dropdown hidden" role="menu" aria-labelledby="optionsMenuBtn">
                 <button id="firstRowHeaderMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="true">
                   First Row Is Header
                 </button>
@@ -26,15 +40,7 @@
                 <button id="hideEmptyColsMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
                   Hide Empty Columns
                 </button>
-                <button id="saveViewMenuItem" class="menu-action" type="button" role="menuitem">Save View</button>
-                <button id="clearSavedViewMenuItem" class="menu-action" type="button" role="menuitem">Clear Saved View</button>
                 <button id="clearFiltersMenuItem" class="menu-action" type="button" role="menuitem">Clear Filters</button>
-                <button id="copySelectedMenuItem" class="menu-action hidden" type="button" role="menuitem">
-                  Copy Selected Rows
-                </button>
-                <button id="copyVisibleMenuItem" class="menu-action" type="button" role="menuitem">
-                  Copy Visible Rows
-                </button>
               </div>
             </div>
           </nav>
@@ -49,15 +55,7 @@
             <button id="copyVisibleBtn" class="tool-btn" type="button">Copy Visible</button>
             <button id="clearFiltersBtn" class="tool-btn" type="button">Clear Filters</button>
           </div>
-          <div class="status-wrap">
-            <p id="status" class="status" aria-live="polite">Use File > Open or the Open File button to load CSV/JSON.</p>
-            <div id="loadingProgressWrap" class="loading-progress hidden" role="status" aria-live="polite" aria-atomic="true">
-              <div class="loading-progress-track" aria-hidden="true">
-                <div id="loadingProgressBar" class="loading-progress-bar"></div>
-              </div>
-              <p id="loadingProgressText" class="loading-progress-text">Processing file...</p>
-            </div>
-          </div>
+          <p id="status" class="status" aria-live="polite">Use File > Open or the Open File button to load CSV/JSON.</p>
         </section>
       </div>
 
@@ -80,6 +78,11 @@
         </div>
         <div class="table-scroll">
           <table id="dataTable" class="data-table"></table>
+        </div>
+        <div id="columnContextMenu" class="column-context-menu hidden" role="menu">
+          <button id="contextMenuPin" class="context-menu-item" type="button" role="menuitem">Pin Column</button>
+          <button id="contextMenuUnpin" class="context-menu-item" type="button" role="menuitem">Unpin Column</button>
+          <button id="contextMenuHide" class="context-menu-item" type="button" role="menuitem">Hide Column</button>
         </div>
       </section>
     </main>
