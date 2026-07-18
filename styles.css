@@ -279,6 +279,34 @@ body {
   padding: 2px 6px;
 }
 
+.find-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #333;
+}
+
+.find-input {
+  width: 210px;
+  height: 22px;
+  font: inherit;
+  border: 1px solid #b7b7b7;
+  background: #fff;
+  padding: 2px 6px;
+}
+
+.find-btn {
+  min-height: 22px;
+  padding: 2px 8px;
+}
+
+.find-count {
+  min-width: 52px;
+  color: #4a4a4a;
+  font-variant-numeric: tabular-nums;
+}
+
 .table-scroll {
   flex: 1;
   min-height: 0;
@@ -466,6 +494,20 @@ body {
 
 .data-table tr:hover td {
   background: #f7fbff;
+}
+
+.data-table td.find-match {
+  background: #fff7c7;
+}
+
+.data-table tr:hover td.find-match {
+  background: #ffefad;
+}
+
+.data-table td.find-active-match {
+  background: #ffe38d;
+  outline: 2px solid #d7a700;
+  outline-offset: -2px;
 }
 
 .filter-input {

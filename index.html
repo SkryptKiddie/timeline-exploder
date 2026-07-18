@@ -40,6 +40,9 @@
                 <button id="hideEmptyColsMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
                   Hide Empty Columns
                 </button>
+                <button id="virtualizedRenderMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
+                  Virtualized Rendering
+                </button>
                 <button id="clearFiltersMenuItem" class="menu-action" type="button" role="menuitem">Clear Filters</button>
               </div>
             </div>
@@ -67,6 +70,13 @@
             Search:
             <input id="globalSearchInput" class="global-search-input" type="text" placeholder="Search all columns..." />
           </label>
+          <div id="findWrap" class="find-wrap hidden">
+            <label for="findInput">Find:</label>
+            <input id="findInput" class="find-input" type="text" placeholder="Find in visible table..." />
+            <button id="findPrevBtn" class="tool-btn find-btn" type="button" title="Previous match">Prev</button>
+            <button id="findNextBtn" class="tool-btn find-btn" type="button" title="Next match">Next</button>
+            <span id="findCount" class="find-count">0 / 0</span>
+          </div>
           <div id="groupByZone" class="group-by-zone" data-drop-active="false">
             <p id="groupByHint" class="group-by-hint">Drop column here to group</p>
             <div id="groupByLabel" class="group-by-label hidden">

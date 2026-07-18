@@ -30,6 +30,12 @@ const clearFiltersMenuItem = document.getElementById("clearFiltersMenuItem");
 const copySelectedMenuItem = document.getElementById("copySelectedMenuItem");
 const copyVisibleMenuItem = document.getElementById("copyVisibleMenuItem");
 const hideEmptyColsMenuItem = document.getElementById("hideEmptyColsMenuItem");
+const virtualizedRenderMenuItem = document.getElementById("virtualizedRenderMenuItem");
+const findWrap = document.getElementById("findWrap");
+const findInput = document.getElementById("findInput");
+const findPrevBtn = document.getElementById("findPrevBtn");
+const findNextBtn = document.getElementById("findNextBtn");
+const findCount = document.getElementById("findCount");
 const columnContextMenu = document.getElementById("columnContextMenu");
 const contextMenuPin = document.getElementById("contextMenuPin");
 const contextMenuUnpin = document.getElementById("contextMenuUnpin");
@@ -48,6 +54,11 @@ const state = {
   firstRowIsHeader: true,
   wordWrap: false,
   hideEmptyCols: false,
+  virtualizedRendering: false,
+  findQuery: "",
+  findMatches: [],
+  findMatchLookup: new Set(),
+  activeFindMatchIndex: -1,
   fileText: "",
   fileName: "",
   fileType: "",
@@ -99,10 +110,19 @@ const columnContextState = {
 
 const RENDER_BATCH_SIZE = 350;
 const RENDER_PROGRESS_MIN_ROWS = 1200;
+const AUTO_VIRTUALIZE_THRESHOLD_BYTES = 1024 * 1024;
 
 const renderState = {
   renderPassId: 0,
   rafId: null
+};
+
+const virtualState = {
+  rowHeight: 28,
+  overscan: 12,
+  scrollRaf: null,
+  scrollListenerAttached: false,
+  lastRangeKey: ""
 };
 
 const FILTER_OPERATORS = [
@@ -233,10 +253,20 @@ hideEmptyColsMenuItem.addEventListener("click", () => {
   toggleHideEmptyCols();
 });
 
+virtualizedRenderMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  toggleVirtualizedRendering();
+});
+
 clearFiltersMenuItem.addEventListener("click", () => {
   closeAllMenus();
   clearAllFilters();
 });
+
+findInput.addEventListener("input", onFindInput);
+findInput.addEventListener("keydown", onFindInputKeyDown);
+findPrevBtn.addEventListener("click", findPreviousMatch);
+findNextBtn.addEventListener("click", findNextMatch);
 
 contextMenuPin.addEventListener("click", () => {
   if (columnContextState.header) {
@@ -277,6 +307,13 @@ async function onFileSelected(event) {
   if (!file) {
     return;
   }
+
+  // Default virtualization behavior is based on incoming file size.
+  state.virtualizedRendering = file.size >= AUTO_VIRTUALIZE_THRESHOLD_BYTES;
+  if (state.virtualizedRendering && state.wordWrap) {
+    state.wordWrap = false;
+  }
+  syncMenuCheckboxStates();
 
   setStatus(`Reading ${file.name}...`);
   showLoadingProgress(5, `Reading ${file.name}...`);
@@ -396,9 +433,19 @@ function onDocumentKeyDown(event) {
     return;
   }
 
+  const isFindShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f";
+  if (isFindShortcut && state.headers.length) {
+    event.preventDefault();
+    showFindBar();
+    return;
+  }
+
   if (event.key === "Escape") {
     closeAllMenus();
     hideColumnContextMenu();
+    if (document.activeElement === findInput) {
+      findInput.blur();
+    }
   }
 }
 
@@ -430,6 +477,10 @@ function toggleFirstRowIsHeader() {
 
 function toggleWordWrap() {
   state.wordWrap = !state.wordWrap;
+  if (state.wordWrap && state.virtualizedRendering) {
+    state.virtualizedRendering = false;
+    detachVirtualScrollHandler();
+  }
   syncMenuCheckboxStates();
   applyWordWrapClass();
   setStatus(`Word Wrap Fields: ${state.wordWrap ? "On" : "Off"}.`, "ok");
@@ -440,6 +491,19 @@ function toggleHideEmptyCols() {
   syncMenuCheckboxStates();
   renderTable();
   setStatus(`Hide Empty Columns: ${state.hideEmptyCols ? "On" : "Off"}.`, "ok");
+}
+
+function toggleVirtualizedRendering() {
+  state.virtualizedRendering = !state.virtualizedRendering;
+
+  if (state.virtualizedRendering && state.wordWrap) {
+    state.wordWrap = false;
+    applyWordWrapClass();
+  }
+
+  syncMenuCheckboxStates();
+  renderTable();
+  setStatus(`Virtualized Rendering: ${state.virtualizedRendering ? "On" : "Off"}.`, "ok");
 }
 
 function getVisibleHeaders() {
@@ -461,6 +525,7 @@ function syncMenuCheckboxStates() {
   firstRowHeaderMenuItem.setAttribute("aria-checked", state.firstRowIsHeader ? "true" : "false");
   wordWrapMenuItem.setAttribute("aria-checked", state.wordWrap ? "true" : "false");
   hideEmptyColsMenuItem.setAttribute("aria-checked", state.hideEmptyCols ? "true" : "false");
+  virtualizedRenderMenuItem.setAttribute("aria-checked", state.virtualizedRendering ? "true" : "false");
 }
 
 function parseCsv(text) {
@@ -646,7 +711,15 @@ function resetState() {
   state.expandedGroups.clear();
   state.pinnedColumns = [];
   state.hiddenColumns.clear();
+  state.findQuery = "";
+  state.findMatches = [];
+  state.findMatchLookup = new Set();
+  state.activeFindMatchIndex = -1;
   globalSearchInput.value = "";
+  findInput.value = "";
+  findWrap.classList.add("hidden");
+  updateFindCount();
+  detachVirtualScrollHandler();
   renderGroupByChips();
   groupByZone.dataset.dropActive = "false";
   updateSelectedActionsVisibility();
@@ -659,7 +732,198 @@ function closeFile() {
   resetState();
   tableZone.classList.add("hidden");
   dataTable.innerHTML = "";
+  rowCount.textContent = "0";
+  columnCount.textContent = "0";
+  detachVirtualScrollHandler();
   setStatus("File closed.", "ok");
+}
+
+function showFindBar() {
+  findWrap.classList.remove("hidden");
+  findInput.focus();
+  findInput.select();
+}
+
+function onFindInput() {
+  state.findQuery = findInput.value || "";
+  state.findMatches = [];
+  state.findMatchLookup = new Set();
+  state.activeFindMatchIndex = -1;
+  updateFindCount();
+}
+
+function onFindInputKeyDown(event) {
+  if (event.key !== "Enter") {
+    return;
+  }
+
+  // Find navigation is intentionally button-driven.
+  event.preventDefault();
+}
+
+function normalizeFindNeedle() {
+  return state.findQuery.trim().toLowerCase();
+}
+
+function rebuildFindMatches() {
+  const needle = normalizeFindNeedle();
+  if (!needle || !state.headers.length) {
+    state.findMatches = [];
+    state.findMatchLookup = new Set();
+    state.activeFindMatchIndex = -1;
+    updateFindCount();
+    return;
+  }
+
+  const visibleHeaders = getVisibleHeaders();
+  const searchRows = getFindSearchRows();
+  const matches = [];
+
+  searchRows.forEach((row, rowIndex) => {
+    visibleHeaders.forEach((header) => {
+      const value = (row[header] || "").toLowerCase();
+      if (value.includes(needle)) {
+        matches.push({ rowId: row.__rowId, header, rowIndex });
+      }
+    });
+  });
+
+  state.findMatches = matches;
+  state.findMatchLookup = new Set(matches.map((match) => `${match.rowId}\u241f${match.header}`));
+  if (!matches.length) {
+    state.activeFindMatchIndex = -1;
+  } else if (state.activeFindMatchIndex < 0 || state.activeFindMatchIndex >= matches.length) {
+    state.activeFindMatchIndex = 0;
+  }
+  updateFindCount();
+}
+
+function updateFindCount() {
+  const active = state.activeFindMatchIndex >= 0 ? state.activeFindMatchIndex + 1 : 0;
+  findCount.textContent = `${active} / ${state.findMatches.length}`;
+}
+
+function getActiveFindMatch() {
+  if (state.activeFindMatchIndex < 0 || state.activeFindMatchIndex >= state.findMatches.length) {
+    return null;
+  }
+  return state.findMatches[state.activeFindMatchIndex];
+}
+
+function isCellFindMatch(rowId, header) {
+  if (!normalizeFindNeedle()) {
+    return false;
+  }
+  return state.findMatchLookup.has(`${rowId}\u241f${header}`);
+}
+
+function isCellActiveFindMatch(rowId, header) {
+  const match = getActiveFindMatch();
+  return Boolean(match && match.rowId === rowId && match.header === header);
+}
+
+function findNextMatch() {
+  rebuildFindMatches();
+  if (!state.findMatches.length) {
+    setStatus("No find matches.", "warn");
+    return;
+  }
+
+  state.activeFindMatchIndex = (state.activeFindMatchIndex + 1 + state.findMatches.length) % state.findMatches.length;
+  updateFindCount();
+  renderTable();
+  focusActiveFindMatch();
+}
+
+function findPreviousMatch() {
+  rebuildFindMatches();
+  if (!state.findMatches.length) {
+    setStatus("No find matches.", "warn");
+    return;
+  }
+
+  state.activeFindMatchIndex = (state.activeFindMatchIndex - 1 + state.findMatches.length) % state.findMatches.length;
+  updateFindCount();
+  renderTable();
+  focusActiveFindMatch();
+}
+
+function focusActiveFindMatch() {
+  const match = getActiveFindMatch();
+  if (!match) {
+    return;
+  }
+
+  const isVisibleInCurrentTable = state.filteredRows.some((row) => row.__rowId === match.rowId);
+  if (!isVisibleInCurrentTable && state.globalSearch.trim()) {
+    // Find intentionally ignores global-search filtering.
+    state.globalSearch = "";
+    globalSearchInput.value = "";
+    applyFilters();
+    renderTable();
+  }
+
+  if (state.virtualizedRendering && !state.groupByColumns.length) {
+    tableScroll.scrollTop = Math.max(0, match.rowIndex * virtualState.rowHeight - virtualState.rowHeight * 2);
+    renderVirtualizedRows();
+  }
+
+  requestAnimationFrame(() => {
+    const target = dataTable.querySelector(
+      `td[data-row-id="${match.rowId}"][data-header="${CSS.escape(match.header)}"]`
+    );
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    }
+  });
+}
+
+function getActiveColumnFilters() {
+  return Object.entries(state.filters)
+    .map(([header, def]) => [header, normalizeFilterDefinition(def)])
+    .filter(([, rule]) => {
+      if (!rule) {
+        return false;
+      }
+      return !filterOperatorNeedsValue(rule.operator) || rule.value.trim() !== "";
+    });
+}
+
+function compareRowsByCurrentSort(a, b) {
+  const { header, direction } = state.sort;
+  if (!header || !direction) {
+    return 0;
+  }
+
+  const av = a[header] || "";
+  const bv = b[header] || "";
+  const numA = Number(av);
+  const numB = Number(bv);
+  const numeric = av !== "" && bv !== "" && !Number.isNaN(numA) && !Number.isNaN(numB);
+  const cmp = numeric
+    ? numA - numB
+    : av.localeCompare(bv, undefined, { numeric: true, sensitivity: "base" });
+  return direction === "desc" ? -cmp : cmp;
+}
+
+function rowMatchesColumnFilters(row, filters) {
+  if (!filters.length) {
+    return true;
+  }
+
+  return filters.every(([header, rule]) => evaluateFilterRule(row[header], rule));
+}
+
+function getFindSearchRows() {
+  // Global search is intentionally ignored for Find navigation.
+  const filters = getActiveColumnFilters();
+  const rows = state.rows.filter((row) => rowMatchesColumnFilters(row, filters));
+
+  if (!state.sort.header || !state.sort.direction) {
+    return rows;
+  }
+
+  return [...rows].sort(compareRowsByCurrentSort);
 }
 
 function applyRowNumberWidth(width) {
@@ -876,7 +1140,17 @@ function appendDataRow(tbody, row, visibleHeaders) {
 
   visibleHeaders.forEach((header) => {
     const td = document.createElement("td");
+    td.dataset.rowId = row.__rowId;
+    td.dataset.header = header;
     td.textContent = row[header] || "";
+
+    if (isCellFindMatch(row.__rowId, header)) {
+      td.classList.add("find-match");
+    }
+    if (isCellActiveFindMatch(row.__rowId, header)) {
+      td.classList.add("find-active-match");
+    }
+
     if (state.pinnedColumns.includes(header)) {
       td.classList.add("pinned-cell");
       td.style.left = `${calculatePinnedColumnLeftOffset(header)}px`;
@@ -1082,11 +1356,15 @@ async function renderGroupedView(options = {}, renderPassId = renderState.render
 async function renderTable(options = {}) {
   const renderPassId = cancelPendingRender();
   dataTable.innerHTML = "";
+  virtualState.lastRangeKey = "";
   applyWordWrapClass();
+  rebuildFindMatches();
 
   // If grouping is active, delegate to grouped view
   if (state.groupByColumns.length) {
+    detachVirtualScrollHandler();
     await renderGroupedView(options, renderPassId);
+    focusActiveFindMatch();
     return;
   }
 
@@ -1127,6 +1405,16 @@ async function renderTable(options = {}) {
   appendTableHeader(thead, visibleHeaders);
   dataTable.appendChild(thead);
 
+  if (state.virtualizedRendering) {
+    renderVirtualizedRows();
+    attachVirtualScrollHandler();
+    updateMeta();
+    focusActiveFindMatch();
+    return;
+  }
+
+  detachVirtualScrollHandler();
+
   const tbody = document.createElement("tbody");
   const shouldShowProgress = Boolean(options.showProgress) || state.filteredRows.length >= RENDER_PROGRESS_MIN_ROWS;
   await appendItemsInBatches(
@@ -1148,6 +1436,106 @@ async function renderTable(options = {}) {
 
   dataTable.appendChild(tbody);
   updateMeta();
+  focusActiveFindMatch();
+}
+
+function renderVirtualizedRows() {
+  if (!state.virtualizedRendering || state.groupByColumns.length) {
+    return;
+  }
+
+  const visibleHeaders = getVisibleHeaders();
+  const rowCountTotal = state.filteredRows.length;
+  const viewportHeight = Math.max(120, tableScroll.clientHeight || 0);
+  const scrollTop = tableScroll.scrollTop;
+  const estimatedRowHeight = Math.max(24, virtualState.rowHeight);
+
+  const startIndex = Math.max(0, Math.floor(scrollTop / estimatedRowHeight) - virtualState.overscan);
+  const visibleCount = Math.ceil(viewportHeight / estimatedRowHeight) + virtualState.overscan * 2;
+  const endIndex = Math.min(rowCountTotal, startIndex + visibleCount);
+  const rangeKey = `${startIndex}:${endIndex}:${rowCountTotal}:${visibleHeaders.join("\u001f")}`;
+  const existingBody = dataTable.querySelector("tbody");
+
+  if (rangeKey === virtualState.lastRangeKey && existingBody) {
+    return;
+  }
+  virtualState.lastRangeKey = rangeKey;
+
+  const oldBody = existingBody;
+  if (oldBody) {
+    oldBody.remove();
+  }
+
+  const tbody = document.createElement("tbody");
+  const colspan = visibleHeaders.length + 2;
+
+  if (startIndex > 0) {
+    const topSpacerRow = document.createElement("tr");
+    const topSpacerCell = document.createElement("td");
+    topSpacerCell.colSpan = colspan;
+    topSpacerCell.style.height = `${startIndex * estimatedRowHeight}px`;
+    topSpacerCell.style.padding = "0";
+    topSpacerCell.style.border = "0";
+    topSpacerCell.style.background = "transparent";
+    topSpacerRow.appendChild(topSpacerCell);
+    tbody.appendChild(topSpacerRow);
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (let i = startIndex; i < endIndex; i += 1) {
+    appendDataRow(fragment, state.filteredRows[i], visibleHeaders);
+  }
+  tbody.appendChild(fragment);
+
+  if (endIndex < rowCountTotal) {
+    const bottomSpacerRow = document.createElement("tr");
+    const bottomSpacerCell = document.createElement("td");
+    bottomSpacerCell.colSpan = colspan;
+    bottomSpacerCell.style.height = `${(rowCountTotal - endIndex) * estimatedRowHeight}px`;
+    bottomSpacerCell.style.padding = "0";
+    bottomSpacerCell.style.border = "0";
+    bottomSpacerCell.style.background = "transparent";
+    bottomSpacerRow.appendChild(bottomSpacerCell);
+    tbody.appendChild(bottomSpacerRow);
+  }
+
+  dataTable.appendChild(tbody);
+
+  const sampleRow = tbody.querySelector("tr td.row-number-cell")?.parentElement;
+  if (sampleRow) {
+    const measured = Math.round(sampleRow.getBoundingClientRect().height);
+    if (measured >= 24 && measured <= 80) {
+      virtualState.rowHeight = measured;
+    }
+  }
+}
+
+function onVirtualScroll() {
+  if (virtualState.scrollRaf) {
+    return;
+  }
+
+  virtualState.scrollRaf = requestAnimationFrame(() => {
+    virtualState.scrollRaf = null;
+    renderVirtualizedRows();
+  });
+}
+
+function attachVirtualScrollHandler() {
+  if (virtualState.scrollListenerAttached) {
+    return;
+  }
+  tableScroll.addEventListener("scroll", onVirtualScroll);
+  virtualState.scrollListenerAttached = true;
+}
+
+function detachVirtualScrollHandler() {
+  if (!virtualState.scrollListenerAttached) {
+    return;
+  }
+  tableScroll.removeEventListener("scroll", onVirtualScroll);
+  virtualState.scrollListenerAttached = false;
+  virtualState.lastRangeKey = "";
 }
 
 function moveHeaderToVisiblePosition(draggedHeader, targetVisibleIndex) {
@@ -1406,14 +1794,7 @@ function onFilterOperatorChange(event) {
 }
 
 function applyFilters() {
-  const filters = Object.entries(state.filters)
-    .map(([header, def]) => [header, normalizeFilterDefinition(def)])
-    .filter(([, rule]) => {
-      if (!rule) {
-        return false;
-      }
-      return !filterOperatorNeedsValue(rule.operator) || rule.value.trim() !== "";
-    });
+  const filters = getActiveColumnFilters();
   const globalNeedle = state.globalSearch.trim().toLowerCase();
   const hasColumnFilters = filters.length > 0;
   const hasGlobalSearch = globalNeedle.length > 0;
@@ -1466,20 +1847,11 @@ function scheduleGlobalSearchApply() {
 }
 
 function applySort() {
-  const { header, direction } = state.sort;
-  if (!header || !direction) {
+  if (!state.sort.header || !state.sort.direction) {
     return;
   }
 
-  state.filteredRows.sort((a, b) => {
-    const av = a[header] || "";
-    const bv = b[header] || "";
-    const numA = Number(av);
-    const numB = Number(bv);
-    const numeric = av !== "" && bv !== "" && !Number.isNaN(numA) && !Number.isNaN(numB);
-    let cmp = numeric ? numA - numB : av.localeCompare(bv, undefined, { numeric: true, sensitivity: "base" });
-    return direction === "desc" ? -cmp : cmp;
-  });
+  state.filteredRows.sort(compareRowsByCurrentSort);
 }
 
 function onSortClick(event) {
