@@ -12,6 +12,8 @@ A lightweight, browser-based CSV/JSON explorer for large tabular datasets. Inspi
   - `{ "rows": [...] }`
 - Renders a scrollable data grid with sticky headers and sticky selection column
 - Provides interactive analysis controls (filter/sort/group/reorder/resize)
+- Virtualised rendering for larger files, for more seamless scrolling
+- Global search and find next support
 
 ## Core Features
 
@@ -31,7 +33,8 @@ A lightweight, browser-based CSV/JSON explorer for large tabular datasets. Inspi
 ### Filtering & Search
 
 - **Per-column filters** in each header (applied on Enter)
-- **Global search bar** in meta row (`Search`) across all columns
+- **Global search bar** in meta row (`Search`) across all columns to filter down results in the table
+- **Find in visible table** in meta row (`Find`) to find instances of a string across the table
 - `Clear Filters` resets both per-column filters and global search
 
 ### Grouping / Drill Down

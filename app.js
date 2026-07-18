@@ -749,6 +749,7 @@ function onFindInput() {
   state.findMatches = [];
   state.findMatchLookup = new Set();
   state.activeFindMatchIndex = -1;
+  clearFindHighlightsInDom();
   updateFindCount();
 }
 
@@ -757,8 +758,24 @@ function onFindInputKeyDown(event) {
     return;
   }
 
-  // Find navigation is intentionally button-driven.
   event.preventDefault();
+
+  rebuildFindMatches();
+  syncFindMatchHighlightsInDom();
+
+  if (!state.findMatches.length) {
+    state.activeFindMatchIndex = -1;
+    updateFindCount();
+    setStatus("No find matches.", "warn");
+    return;
+  }
+
+  const previousMatch = getActiveFindMatch();
+  state.activeFindMatchIndex = 0;
+  updateFindCount();
+  const firstMatch = getActiveFindMatch();
+  updateActiveFindHighlightInDom(previousMatch, firstMatch);
+  focusActiveFindMatch();
 }
 
 function normalizeFindNeedle() {
@@ -824,27 +841,33 @@ function isCellActiveFindMatch(rowId, header) {
 
 function findNextMatch() {
   rebuildFindMatches();
+  syncFindMatchHighlightsInDom();
   if (!state.findMatches.length) {
     setStatus("No find matches.", "warn");
     return;
   }
 
+  const previousMatch = getActiveFindMatch();
   state.activeFindMatchIndex = (state.activeFindMatchIndex + 1 + state.findMatches.length) % state.findMatches.length;
   updateFindCount();
-  renderTable();
+  const nextMatch = getActiveFindMatch();
+  updateActiveFindHighlightInDom(previousMatch, nextMatch);
   focusActiveFindMatch();
 }
 
 function findPreviousMatch() {
   rebuildFindMatches();
+  syncFindMatchHighlightsInDom();
   if (!state.findMatches.length) {
     setStatus("No find matches.", "warn");
     return;
   }
 
+  const previousMatch = getActiveFindMatch();
   state.activeFindMatchIndex = (state.activeFindMatchIndex - 1 + state.findMatches.length) % state.findMatches.length;
   updateFindCount();
-  renderTable();
+  const nextMatch = getActiveFindMatch();
+  updateActiveFindHighlightInDom(previousMatch, nextMatch);
   focusActiveFindMatch();
 }
 
@@ -854,17 +877,14 @@ function focusActiveFindMatch() {
     return;
   }
 
-  const isVisibleInCurrentTable = state.filteredRows.some((row) => row.__rowId === match.rowId);
-  if (!isVisibleInCurrentTable && state.globalSearch.trim()) {
-    // Find intentionally ignores global-search filtering.
-    state.globalSearch = "";
-    globalSearchInput.value = "";
-    applyFilters();
-    renderTable();
+  const visibleIndex = state.filteredRows.findIndex((row) => row.__rowId === match.rowId);
+  if (visibleIndex < 0) {
+    setStatus("Match is outside the current visible rows.", "warn");
+    return;
   }
 
   if (state.virtualizedRendering && !state.groupByColumns.length) {
-    tableScroll.scrollTop = Math.max(0, match.rowIndex * virtualState.rowHeight - virtualState.rowHeight * 2);
+    tableScroll.scrollTop = Math.max(0, visibleIndex * virtualState.rowHeight - virtualState.rowHeight * 2);
     renderVirtualizedRows();
   }
 
@@ -873,8 +893,47 @@ function focusActiveFindMatch() {
       `td[data-row-id="${match.rowId}"][data-header="${CSS.escape(match.header)}"]`
     );
     if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      target.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
     }
+  });
+}
+
+function updateActiveFindHighlightInDom(previousMatch, nextMatch) {
+  if (previousMatch) {
+    const previousCell = dataTable.querySelector(
+      `td[data-row-id="${previousMatch.rowId}"][data-header="${CSS.escape(previousMatch.header)}"]`
+    );
+    if (previousCell) {
+      previousCell.classList.remove("find-active-match");
+    }
+  }
+
+  if (nextMatch) {
+    const nextCell = dataTable.querySelector(
+      `td[data-row-id="${nextMatch.rowId}"][data-header="${CSS.escape(nextMatch.header)}"]`
+    );
+    if (nextCell) {
+      nextCell.classList.add("find-active-match");
+    }
+  }
+}
+
+function clearFindHighlightsInDom() {
+  const cells = dataTable.querySelectorAll("tbody td.find-match, tbody td.find-active-match");
+  cells.forEach((cell) => {
+    cell.classList.remove("find-match", "find-active-match");
+  });
+}
+
+function syncFindMatchHighlightsInDom() {
+  const cells = dataTable.querySelectorAll("tbody td[data-row-id][data-header]");
+  cells.forEach((cell) => {
+    const rowId = cell.dataset.rowId;
+    const header = cell.dataset.header;
+    const key = `${rowId}\u241f${header}`;
+    const isMatch = state.findMatchLookup.has(key);
+    cell.classList.toggle("find-match", isMatch);
+    cell.classList.remove("find-active-match");
   });
 }
 
