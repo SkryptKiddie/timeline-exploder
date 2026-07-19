@@ -44,6 +44,20 @@
                   Virtualized Rendering
                 </button>
                 <button id="clearFiltersMenuItem" class="menu-action" type="button" role="menuitem">Clear Filters</button>
+                <div class="menu-submenu-item" role="none">
+                  <button id="themeMenuItem" class="menu-action menu-submenu-trigger" type="button" role="menuitem" aria-haspopup="true" aria-expanded="false">
+                    <span>Theme</span>
+                    <span class="menu-submenu-arrow" aria-hidden="true">&#9656;</span>
+                  </button>
+                  <div class="menu-submenu" role="menu" aria-labelledby="themeMenuItem">
+                    <button id="themeLightMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="true">
+                      Light
+                    </button>
+                    <button id="themeDarkMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
+                      Dark
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </nav>

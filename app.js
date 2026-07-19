@@ -26,6 +26,9 @@ const openFileMenuItem = document.getElementById("openFileMenuItem");
 const closeFileMenuItem = document.getElementById("closeFileMenuItem");
 const firstRowHeaderMenuItem = document.getElementById("firstRowHeaderMenuItem");
 const wordWrapMenuItem = document.getElementById("wordWrapMenuItem");
+const themeMenuItem = document.getElementById("themeMenuItem");
+const themeLightMenuItem = document.getElementById("themeLightMenuItem");
+const themeDarkMenuItem = document.getElementById("themeDarkMenuItem");
 const clearFiltersMenuItem = document.getElementById("clearFiltersMenuItem");
 const copySelectedMenuItem = document.getElementById("copySelectedMenuItem");
 const copyVisibleMenuItem = document.getElementById("copyVisibleMenuItem");
@@ -52,6 +55,7 @@ const state = {
   rowNumberWidth: 72,
   sort: { header: null, direction: null }, // null | "asc" | "desc"
   firstRowIsHeader: true,
+  theme: "light", // "light" | "dark"
   wordWrap: false,
   hideEmptyCols: false,
   virtualizedRendering: false,
@@ -111,6 +115,8 @@ const columnContextState = {
 const RENDER_BATCH_SIZE = 350;
 const RENDER_PROGRESS_MIN_ROWS = 1200;
 const AUTO_VIRTUALIZE_THRESHOLD_BYTES = 1024 * 1024;
+const THEME_STORAGE_KEY = "timelineExploderTheme";
+const SUPPORTED_THEMES = new Set(["light", "dark"]);
 
 const renderState = {
   renderPassId: 0,
@@ -248,6 +254,20 @@ wordWrapMenuItem.addEventListener("click", () => {
   toggleWordWrap();
 });
 
+themeMenuItem.addEventListener("click", (event) => {
+  event.stopPropagation();
+});
+
+themeLightMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  setTheme("light");
+});
+
+themeDarkMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  setTheme("dark");
+});
+
 hideEmptyColsMenuItem.addEventListener("click", () => {
   closeAllMenus();
   toggleHideEmptyCols();
@@ -298,7 +318,9 @@ document.addEventListener("mouseup", onGroupDragEnd);
 groupByList.addEventListener("dragover", onGroupListDragOver);
 groupByList.addEventListener("drop", onGroupListDrop);
 
+loadThemePreference();
 syncMenuCheckboxStates();
+applyTheme();
 applyWordWrapClass();
 updateSelectedActionsVisibility();
 
@@ -486,6 +508,20 @@ function toggleWordWrap() {
   setStatus(`Word Wrap Fields: ${state.wordWrap ? "On" : "Off"}.`, "ok");
 }
 
+function setTheme(theme) {
+  if (!SUPPORTED_THEMES.has(theme) || state.theme === theme) {
+    syncMenuCheckboxStates();
+    applyTheme();
+    return;
+  }
+
+  state.theme = theme;
+  persistThemePreference(theme);
+  applyTheme();
+  syncMenuCheckboxStates();
+  setStatus(`Dark Theme: ${state.theme === "dark" ? "On" : "Off"}.`, "ok");
+}
+
 function toggleHideEmptyCols() {
   state.hideEmptyCols = !state.hideEmptyCols;
   syncMenuCheckboxStates();
@@ -524,8 +560,37 @@ function getVisibleHeaders() {
 function syncMenuCheckboxStates() {
   firstRowHeaderMenuItem.setAttribute("aria-checked", state.firstRowIsHeader ? "true" : "false");
   wordWrapMenuItem.setAttribute("aria-checked", state.wordWrap ? "true" : "false");
+  themeLightMenuItem.setAttribute("aria-checked", state.theme === "light" ? "true" : "false");
+  themeDarkMenuItem.setAttribute("aria-checked", state.theme === "dark" ? "true" : "false");
   hideEmptyColsMenuItem.setAttribute("aria-checked", state.hideEmptyCols ? "true" : "false");
   virtualizedRenderMenuItem.setAttribute("aria-checked", state.virtualizedRendering ? "true" : "false");
+}
+
+function applyTheme() {
+  if (state.theme === "dark") {
+    document.body.setAttribute("data-theme", "dark");
+    return;
+  }
+  document.body.removeAttribute("data-theme");
+}
+
+function loadThemePreference() {
+  try {
+    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    if (SUPPORTED_THEMES.has(storedTheme)) {
+      state.theme = storedTheme;
+    }
+  } catch (error) {
+    console.warn("Theme preference could not be read from localStorage.", error);
+  }
+}
+
+function persistThemePreference(theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (error) {
+    console.warn("Theme preference could not be saved to localStorage.", error);
+  }
 }
 
 function parseCsv(text) {
