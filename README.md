@@ -2,6 +2,8 @@
 
 A lightweight, browser-based CSV/JSON/SQLite explorer for large tabular datasets. Inspired by Eric Zimmerman's Timeline Explorer.
 
+![Screenshot of Timeline Exploder](example.png)
+
 ## What It Does
 
 - Opens local `.csv`, `.json` and `sqlite` files directly in the browser
