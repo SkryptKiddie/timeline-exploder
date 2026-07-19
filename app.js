@@ -24,6 +24,19 @@ const fileMenuBtn = document.getElementById("fileMenuBtn");
 const fileMenu = document.getElementById("fileMenu");
 const optionsMenuBtn = document.getElementById("optionsMenuBtn");
 const optionsMenu = document.getElementById("optionsMenu");
+const helpBtn = document.getElementById("helpBtn");
+const helpOverlay = document.getElementById("helpOverlay");
+const helpCloseBtn = document.getElementById("helpCloseBtn");
+const cellOverlay = document.getElementById("cellOverlay");
+const cellOverlayCloseBtn = document.getElementById("cellOverlayCloseBtn");
+const cellOverlayTitle = document.getElementById("cellOverlayTitle");
+const cellOverlayMeta = document.getElementById("cellOverlayMeta");
+const cellOverlayValue = document.getElementById("cellOverlayValue");
+const cellFontDecreaseBtn = document.getElementById("cellFontDecreaseBtn");
+const cellFontIncreaseBtn = document.getElementById("cellFontIncreaseBtn");
+const cellFontSizeInput = document.getElementById("cellFontSizeInput");
+const cellFontSizeValue = document.getElementById("cellFontSizeValue");
+const cellOverlaySyntaxHint = document.getElementById("cellOverlaySyntaxHint");
 const openFileMenuItem = document.getElementById("openFileMenuItem");
 const closeFileMenuItem = document.getElementById("closeFileMenuItem");
 const firstRowHeaderMenuItem = document.getElementById("firstRowHeaderMenuItem");
@@ -124,6 +137,8 @@ const RENDER_BATCH_SIZE = 350;
 const RENDER_PROGRESS_MIN_ROWS = 1200;
 const AUTO_VIRTUALIZE_THRESHOLD_BYTES = 1024 * 1024;
 const THEME_STORAGE_KEY = "timelineExploderTheme";
+const CELL_OVERLAY_FONT_MIN = 10;
+const CELL_OVERLAY_FONT_MAX = 28;
 const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "neon-party"]);
 const THEME_LABELS = {
   light: "Classic Light",
@@ -133,6 +148,7 @@ const THEME_LABELS = {
   "neon-party": "Neon"
 };
 let sqlJsInitPromise = null;
+let cellOverlayFontSize = 12;
 
 const renderState = {
   renderPassId: 0,
@@ -238,8 +254,17 @@ clearFiltersBtn.addEventListener("click", clearAllFilters);
 clearGroupByBtn.addEventListener("click", clearGroupBy);
 fileMenuBtn.addEventListener("click", toggleFileMenu);
 optionsMenuBtn.addEventListener("click", toggleOptionsMenu);
+helpBtn.addEventListener("click", openHelpOverlay);
 globalSearchInput.addEventListener("input", onGlobalSearchInput);
 sqliteTableSelect.addEventListener("change", onSqliteTableChange);
+helpCloseBtn.addEventListener("click", closeHelpOverlay);
+helpOverlay.addEventListener("click", onHelpOverlayClick);
+cellOverlayCloseBtn.addEventListener("click", closeCellOverlay);
+cellOverlay.addEventListener("click", onCellOverlayClick);
+dataTable.addEventListener("dblclick", onDataTableDoubleClick);
+cellFontSizeInput.addEventListener("input", onCellOverlayFontSizeInput);
+cellFontDecreaseBtn.addEventListener("click", () => adjustCellOverlayFontSize(-1));
+cellFontIncreaseBtn.addEventListener("click", () => adjustCellOverlayFontSize(1));
 
 openFileMenuItem.addEventListener("click", () => {
   closeAllMenus();
@@ -356,6 +381,7 @@ applyTheme();
 applyWordWrapClass();
 updateSelectedActionsVisibility();
 updateSqliteTablePicker();
+applyCellOverlayFontSize(cellOverlayFontSize);
 
 async function onFileSelected(event) {
   const [file] = event.target.files;
@@ -612,6 +638,16 @@ function onDocumentClick(event) {
 }
 
 function onDocumentKeyDown(event) {
+  if (event.key === "Escape" && !cellOverlay.classList.contains("hidden")) {
+    closeCellOverlay();
+    return;
+  }
+
+  if (event.key === "Escape" && !helpOverlay.classList.contains("hidden")) {
+    closeHelpOverlay();
+    return;
+  }
+
   const isOpenShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "o";
   if (isOpenShortcut) {
     event.preventDefault();
@@ -634,6 +670,193 @@ function onDocumentKeyDown(event) {
       findInput.blur();
     }
   }
+}
+
+function openHelpOverlay() {
+  closeAllMenus();
+  hideColumnContextMenu();
+  helpOverlay.classList.remove("hidden");
+  helpBtn.setAttribute("aria-expanded", "true");
+  helpCloseBtn.focus();
+}
+
+function closeHelpOverlay() {
+  helpOverlay.classList.add("hidden");
+  helpBtn.setAttribute("aria-expanded", "false");
+}
+
+function onHelpOverlayClick(event) {
+  if (event.target === helpOverlay) {
+    closeHelpOverlay();
+  }
+}
+
+function onDataTableDoubleClick(event) {
+  const cell = event.target.closest("td[data-row-id][data-header]");
+  if (!cell) {
+    return;
+  }
+
+  const value = cell.textContent || "";
+  const rowIndex = Number(cell.parentElement?.querySelector(".row-number-cell")?.textContent || "");
+  openCellOverlay({
+    header: cell.dataset.header || "Field",
+    value,
+    rowIndex: Number.isFinite(rowIndex) ? rowIndex : null
+  });
+}
+
+function openCellOverlay({ header, value, rowIndex }) {
+  const rowLabel = Number.isFinite(rowIndex) && rowIndex > 0 ? `Row ${rowIndex}` : "Row";
+  const titleText = `${rowLabel} - ${header || "Field"}`;
+  if (!helpOverlay.classList.contains("hidden")) {
+    closeHelpOverlay();
+  }
+  cellOverlayTitle.textContent = titleText;
+  cellOverlayMeta.textContent = "";
+  renderCellOverlayValue(value);
+  cellOverlay.classList.remove("hidden");
+  cellOverlayCloseBtn.focus();
+}
+
+function closeCellOverlay() {
+  cellOverlay.classList.add("hidden");
+}
+
+function onCellOverlayClick(event) {
+  if (event.target === cellOverlay) {
+    closeCellOverlay();
+  }
+}
+
+function clampCellOverlayFontSize(size) {
+  return Math.min(CELL_OVERLAY_FONT_MAX, Math.max(CELL_OVERLAY_FONT_MIN, size));
+}
+
+function applyCellOverlayFontSize(size) {
+  const nextSize = clampCellOverlayFontSize(Number(size) || 12);
+  cellOverlayFontSize = nextSize;
+  cellOverlayValue.style.fontSize = `${nextSize}px`;
+  cellFontSizeInput.value = String(nextSize);
+  cellFontSizeValue.textContent = `${nextSize}px`;
+}
+
+function adjustCellOverlayFontSize(delta) {
+  applyCellOverlayFontSize(cellOverlayFontSize + delta);
+}
+
+function onCellOverlayFontSizeInput(event) {
+  applyCellOverlayFontSize(Number(event.target.value));
+}
+
+function escapeHtml(value) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderTokenizedHtml(rawText, regex, classifier) {
+  if (!rawText) {
+    return "";
+  }
+
+  regex.lastIndex = 0;
+  let cursor = 0;
+  let html = "";
+  let match = regex.exec(rawText);
+
+  while (match) {
+    const start = match.index;
+    if (start > cursor) {
+      html += escapeHtml(rawText.slice(cursor, start));
+    }
+
+    const className = classifier(match);
+    const tokenText = match[0];
+    if (className) {
+      html += `<span class="${className}">${escapeHtml(tokenText)}</span>`;
+    } else {
+      html += escapeHtml(tokenText);
+    }
+
+    cursor = start + tokenText.length;
+    match = regex.exec(rawText);
+  }
+
+  if (cursor < rawText.length) {
+    html += escapeHtml(rawText.slice(cursor));
+  }
+
+  return html;
+}
+
+function highlightJsonText(text) {
+  const tokenRegex = /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\\"])*"\s*:?)|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?/g;
+
+  return renderTokenizedHtml(text, tokenRegex, (match) => {
+    const token = match[0];
+    if (token.endsWith(":")) {
+      return "cell-token-key";
+    }
+    if (token.startsWith('"')) {
+      return "cell-token-string";
+    }
+    if (token === "true" || token === "false") {
+      return "cell-token-boolean";
+    }
+    if (token === "null") {
+      return "cell-token-null";
+    }
+    return "cell-token-number";
+  });
+}
+
+function highlightPlainText(text) {
+  const tokenRegex = /(https?:\/\/[^\s]+)|([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b)|(\b\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+\-]\d{2}:?\d{2})?)?\b)/gi;
+
+  return renderTokenizedHtml(text, tokenRegex, (match) => {
+    if (match[1]) {
+      return "cell-token-url";
+    }
+    if (match[2]) {
+      return "cell-token-email";
+    }
+    if (match[3]) {
+      return "cell-token-uuid";
+    }
+    if (match[4]) {
+      return "cell-token-datetime";
+    }
+    return "";
+  });
+}
+
+function renderCellOverlayValue(rawValue) {
+  const text = rawValue || "";
+  if (!text) {
+    cellOverlayValue.textContent = "(empty)";
+    cellOverlaySyntaxHint.textContent = "Text";
+    return;
+  }
+
+  const trimmed = text.trim();
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed !== null && (Array.isArray(parsed) || typeof parsed === "object")) {
+      const pretty = JSON.stringify(parsed, null, 2);
+      cellOverlayValue.innerHTML = highlightJsonText(pretty);
+      cellOverlaySyntaxHint.textContent = "JSON";
+      return;
+    }
+  } catch {
+    // Keep plain-text rendering when input is not valid JSON.
+  }
+
+  cellOverlayValue.innerHTML = highlightPlainText(text);
+  cellOverlaySyntaxHint.textContent = "Text";
 }
 
 function onColumnHeaderContextMenu(event, header) {

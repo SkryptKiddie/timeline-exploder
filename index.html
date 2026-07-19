@@ -69,6 +69,11 @@
                 </div>
               </div>
             </div>
+            <div class="menu-item">
+              <button id="helpBtn" class="menu-button help-button" type="button" aria-haspopup="dialog" aria-expanded="false">
+                Help
+              </button>
+            </div>
           </nav>
         </header>
 
@@ -83,6 +88,41 @@
           </div>
           <p id="status" class="status" aria-live="polite">Use File > Open or the Open File button to load CSV/JSON/SQLite.</p>
         </section>
+      </div>
+
+      <div id="helpOverlay" class="help-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpOverlayTitle">
+        <div class="help-panel" role="document">
+          <div class="help-panel-header">
+            <h2 id="helpOverlayTitle" class="help-title">Help</h2>
+            <button id="helpCloseBtn" class="help-close-btn" type="button" aria-label="Close help">&times;</button>
+          </div>
+          <div class="help-panel-body">
+            <p>Timeline Exploder is a simple, web-based utility for browsing CSV, JSON and SQLite files. It is heavily inspired from <a href="https://www.sans.org/tools/timeline-explorer" target="_blank">Eric Zimmerman's Timeline Explorer</a>.</p>
+            <p>All processing is handled on the client-site, <strong>no data is sent to any server.</strong></p>
+            <p>The source code can be found on <a href="https://github.com/skryptkiddie/timeline-exploder" target="_blank">GitHub</a>.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="cellOverlay" class="help-overlay cell-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="cellOverlayTitle">
+        <div class="help-panel cell-panel" role="document">
+          <div class="help-panel-header">
+            <h2 id="cellOverlayTitle" class="help-title">Cell Value</h2>
+            <button id="cellOverlayCloseBtn" class="help-close-btn" type="button" aria-label="Close cell value viewer">&times;</button>
+          </div>
+          <div class="help-panel-body cell-panel-body">
+            <p id="cellOverlayMeta" class="cell-overlay-meta"></p>
+            <pre id="cellOverlayValue" class="cell-overlay-value"></pre>
+            <div class="cell-overlay-controls" aria-label="Cell viewer display settings">
+              <label class="cell-font-label" for="cellFontSizeInput">Font size</label>
+              <button id="cellFontDecreaseBtn" class="tool-btn cell-font-btn" type="button" aria-label="Decrease font size">A-</button>
+              <input id="cellFontSizeInput" class="cell-font-slider" type="range" min="10" max="28" step="1" value="12" />
+              <button id="cellFontIncreaseBtn" class="tool-btn cell-font-btn" type="button" aria-label="Increase font size">A+</button>
+              <span id="cellFontSizeValue" class="cell-font-size-value" aria-live="polite">12px</span>
+              <span id="cellOverlaySyntaxHint" class="cell-overlay-syntax" aria-live="polite">Text</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <section class="table-zone hidden" id="tableZone">
