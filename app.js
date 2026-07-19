@@ -31,6 +31,9 @@ const wordWrapMenuItem = document.getElementById("wordWrapMenuItem");
 const themeMenuItem = document.getElementById("themeMenuItem");
 const themeLightMenuItem = document.getElementById("themeLightMenuItem");
 const themeDarkMenuItem = document.getElementById("themeDarkMenuItem");
+const themeMaterialLightMenuItem = document.getElementById("themeMaterialLightMenuItem");
+const themeMaterialDarkMenuItem = document.getElementById("themeMaterialDarkMenuItem");
+const themeNeonPartyMenuItem = document.getElementById("themeNeonPartyMenuItem");
 const clearFiltersMenuItem = document.getElementById("clearFiltersMenuItem");
 const copySelectedMenuItem = document.getElementById("copySelectedMenuItem");
 const copyVisibleMenuItem = document.getElementById("copyVisibleMenuItem");
@@ -121,7 +124,14 @@ const RENDER_BATCH_SIZE = 350;
 const RENDER_PROGRESS_MIN_ROWS = 1200;
 const AUTO_VIRTUALIZE_THRESHOLD_BYTES = 1024 * 1024;
 const THEME_STORAGE_KEY = "timelineExploderTheme";
-const SUPPORTED_THEMES = new Set(["light", "dark"]);
+const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "neon-party"]);
+const THEME_LABELS = {
+  light: "Classic Light",
+  dark: "Classic Dark",
+  "material-light": "Material Light",
+  "material-dark": "Material Dark",
+  "neon-party": "Neon"
+};
 let sqlJsInitPromise = null;
 
 const renderState = {
@@ -273,6 +283,21 @@ themeLightMenuItem.addEventListener("click", () => {
 themeDarkMenuItem.addEventListener("click", () => {
   closeAllMenus();
   setTheme("dark");
+});
+
+themeMaterialLightMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  setTheme("material-light");
+});
+
+themeMaterialDarkMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  setTheme("material-dark");
+});
+
+themeNeonPartyMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  setTheme("neon-party");
 });
 
 hideEmptyColsMenuItem.addEventListener("click", () => {
@@ -659,7 +684,7 @@ function setTheme(theme) {
   persistThemePreference(theme);
   applyTheme();
   syncMenuCheckboxStates();
-  setStatus(`Dark Theme: ${state.theme === "dark" ? "On" : "Off"}.`, "ok");
+  setStatus(`Theme: ${THEME_LABELS[state.theme] || state.theme}.`, "ok");
 }
 
 function toggleHideEmptyCols() {
@@ -702,16 +727,19 @@ function syncMenuCheckboxStates() {
   wordWrapMenuItem.setAttribute("aria-checked", state.wordWrap ? "true" : "false");
   themeLightMenuItem.setAttribute("aria-checked", state.theme === "light" ? "true" : "false");
   themeDarkMenuItem.setAttribute("aria-checked", state.theme === "dark" ? "true" : "false");
+  themeMaterialLightMenuItem.setAttribute("aria-checked", state.theme === "material-light" ? "true" : "false");
+  themeMaterialDarkMenuItem.setAttribute("aria-checked", state.theme === "material-dark" ? "true" : "false");
+  themeNeonPartyMenuItem.setAttribute("aria-checked", state.theme === "neon-party" ? "true" : "false");
   hideEmptyColsMenuItem.setAttribute("aria-checked", state.hideEmptyCols ? "true" : "false");
   virtualizedRenderMenuItem.setAttribute("aria-checked", state.virtualizedRendering ? "true" : "false");
 }
 
 function applyTheme() {
-  if (state.theme === "dark") {
-    document.body.setAttribute("data-theme", "dark");
-    return;
+  if (state.theme === "light") {
+    document.body.removeAttribute("data-theme");
+  } else {
+    document.body.setAttribute("data-theme", state.theme);
   }
-  document.body.removeAttribute("data-theme");
 }
 
 function loadThemePreference() {
