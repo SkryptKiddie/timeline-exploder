@@ -63,7 +63,7 @@
           </nav>
         </header>
 
-        <input id="fileInput" class="hidden-file-input" type="file" accept=".csv,.json,application/json,text/csv" />
+        <input id="fileInput" class="hidden-file-input" type="file" accept=".csv,.json,.db,.sqlite,.sqlite3,application/json,text/csv,application/vnd.sqlite3" />
 
         <section class="controls">
           <div class="toolbar">
@@ -72,7 +72,7 @@
             <button id="copyVisibleBtn" class="tool-btn" type="button">Copy Visible</button>
             <button id="clearFiltersBtn" class="tool-btn" type="button">Clear Filters</button>
           </div>
-          <p id="status" class="status" aria-live="polite">Use File > Open or the Open File button to load CSV/JSON.</p>
+          <p id="status" class="status" aria-live="polite">Use File > Open or the Open File button to load CSV/JSON/SQLite.</p>
         </section>
       </div>
 
@@ -99,6 +99,10 @@
               <button id="clearGroupByBtn" class="clear-group-by-btn" type="button" title="Clear all grouped fields">&times;</button>
             </div>
           </div>
+          <label id="sqliteTableWrap" class="sqlite-table-wrap hidden" for="sqliteTableSelect">
+            Table:
+            <select id="sqliteTableSelect" class="sqlite-table-select" aria-label="Select SQLite table"></select>
+          </label>
         </div>
         <div class="table-scroll">
           <table id="dataTable" class="data-table"></table>
@@ -112,6 +116,7 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

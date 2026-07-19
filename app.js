@@ -10,6 +10,8 @@ const groupByHint = document.getElementById("groupByHint");
 const groupByLabel = document.getElementById("groupByLabel");
 const groupByList = document.getElementById("groupByList");
 const clearGroupByBtn = document.getElementById("clearGroupByBtn");
+const sqliteTableWrap = document.getElementById("sqliteTableWrap");
+const sqliteTableSelect = document.getElementById("sqliteTableSelect");
 const statusNode = document.getElementById("status");
 const loadingProgressWrap = document.getElementById("loadingProgressWrap");
 const loadingProgressBar = document.getElementById("loadingProgressBar");
@@ -64,8 +66,11 @@ const state = {
   findMatchLookup: new Set(),
   activeFindMatchIndex: -1,
   fileText: "",
+  fileBuffer: null,
   fileName: "",
   fileType: "",
+  sqliteTables: [],
+  sqliteTableName: "",
   visibleRowIds: [],
   groupByColumns: [], // Ordered list of columns used for drill-down grouping
   expandedGroups: new Set(), // Track which group values are expanded
@@ -117,6 +122,7 @@ const RENDER_PROGRESS_MIN_ROWS = 1200;
 const AUTO_VIRTUALIZE_THRESHOLD_BYTES = 1024 * 1024;
 const THEME_STORAGE_KEY = "timelineExploderTheme";
 const SUPPORTED_THEMES = new Set(["light", "dark"]);
+let sqlJsInitPromise = null;
 
 const renderState = {
   renderPassId: 0,
@@ -223,6 +229,7 @@ clearGroupByBtn.addEventListener("click", clearGroupBy);
 fileMenuBtn.addEventListener("click", toggleFileMenu);
 optionsMenuBtn.addEventListener("click", toggleOptionsMenu);
 globalSearchInput.addEventListener("input", onGlobalSearchInput);
+sqliteTableSelect.addEventListener("change", onSqliteTableChange);
 
 openFileMenuItem.addEventListener("click", () => {
   closeAllMenus();
@@ -323,6 +330,7 @@ syncMenuCheckboxStates();
 applyTheme();
 applyWordWrapClass();
 updateSelectedActionsVisibility();
+updateSqliteTablePicker();
 
 async function onFileSelected(event) {
   const [file] = event.target.files;
@@ -341,13 +349,25 @@ async function onFileSelected(event) {
   showLoadingProgress(5, `Reading ${file.name}...`);
 
   try {
-    state.fileText = await file.text();
     state.fileName = file.name;
     state.fileType = file.type || "";
+    state.sqliteTables = [];
+    state.sqliteTableName = "";
+
+    const extension = state.fileName.split(".").pop()?.toLowerCase() || "";
+    const isSqlite = isSqliteExtension(extension) || state.fileType.toLowerCase().includes("sqlite");
+
+    if (isSqlite) {
+      state.fileBuffer = await file.arrayBuffer();
+      state.fileText = "";
+    } else {
+      state.fileText = await file.text();
+      state.fileBuffer = null;
+    }
 
     showLoadingProgress(25, "Parsing file...");
     await nextFrame();
-    parseCurrentFile();
+    await parseCurrentFile();
 
     showLoadingProgress(55, "Applying filters...");
     applyFilters();
@@ -360,10 +380,8 @@ async function onFileSelected(event) {
     });
     showLoadingProgress(100, "Done");
 
-    setStatus(
-      `Loaded ${state.rows.length} row${state.rows.length === 1 ? "" : "s"} from ${file.name}.`,
-      "ok"
-    );
+    const sqliteTableLabel = state.sqliteTableName ? ` (table ${state.sqliteTableName})` : "";
+    setStatus(`Loaded ${state.rows.length} row${state.rows.length === 1 ? "" : "s"} from ${file.name}${sqliteTableLabel}.`, "ok");
     window.setTimeout(hideLoadingProgress, 280);
   } catch (error) {
     console.error(error);
@@ -374,16 +392,138 @@ async function onFileSelected(event) {
   }
 }
 
-function parseCurrentFile() {
+async function parseCurrentFile() {
+  const extension = state.fileName.split(".").pop()?.toLowerCase() || "";
+  if (isSqliteExtension(extension) || state.fileType.toLowerCase().includes("sqlite")) {
+    if (!state.fileBuffer) {
+      return;
+    }
+    await parseSqlite(state.fileBuffer);
+    return;
+  }
+
+  state.sqliteTables = [];
+  state.sqliteTableName = "";
+  updateSqliteTablePicker();
+
   if (!state.fileText) {
     return;
   }
 
-  const extension = state.fileName.split(".").pop()?.toLowerCase() || "";
   if (extension === "json" || state.fileType.includes("json")) {
     parseJson(state.fileText);
   } else {
     parseCsv(state.fileText);
+  }
+}
+
+function isSqliteExtension(extension) {
+  return extension === "sqlite" || extension === "sqlite3" || extension === "db";
+}
+
+function quoteSqliteIdentifier(name) {
+  return `"${String(name).replace(/"/g, '""')}"`;
+}
+
+async function getSqlJs() {
+  if (sqlJsInitPromise) {
+    return sqlJsInitPromise;
+  }
+
+  if (typeof initSqlJs !== "function") {
+    throw new Error("sql.js runtime is unavailable.");
+  }
+
+  sqlJsInitPromise = initSqlJs({
+    locateFile: (fileName) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${fileName}`
+  });
+  return sqlJsInitPromise;
+}
+
+async function parseSqlite(buffer) {
+  const SQL = await getSqlJs();
+  const db = new SQL.Database(new Uint8Array(buffer));
+
+  try {
+    const tableMeta = db.exec(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    );
+    const tableNames = tableMeta[0]?.values?.map((row) => String(row[0])) || [];
+
+    if (!tableNames.length) {
+      throw new Error("No user tables found in this SQLite file.");
+    }
+
+    state.sqliteTables = tableNames;
+    if (!state.sqliteTableName || !tableNames.includes(state.sqliteTableName)) {
+      state.sqliteTableName = tableNames[0];
+    }
+
+    const tableName = state.sqliteTableName;
+    updateSqliteTablePicker();
+    const quotedTable = quoteSqliteIdentifier(tableName);
+
+    const selectResult = db.exec(`SELECT * FROM ${quotedTable}`);
+    const pragmaResult = db.exec(`PRAGMA table_info(${quotedTable})`);
+    const pragmaHeaders = pragmaResult[0]?.values?.map((row) => String(row[1] || "")) || [];
+
+    const rawHeaders = selectResult[0]?.columns || pragmaHeaders;
+    const headers = rawHeaders.map((header, idx) => header || `Column ${idx + 1}`);
+    const values = selectResult[0]?.values || [];
+
+    const rows = values.map((valuesRow) => {
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = stringifyCellValue(valuesRow[idx]);
+      });
+      return row;
+    });
+
+    hydrateState(headers, rows);
+  } finally {
+    db.close();
+  }
+}
+
+function updateSqliteTablePicker() {
+  const shouldShow = state.sqliteTables.length > 0;
+  sqliteTableWrap.classList.toggle("hidden", !shouldShow);
+
+  if (!shouldShow) {
+    sqliteTableSelect.innerHTML = "";
+    return;
+  }
+
+  sqliteTableSelect.innerHTML = "";
+  state.sqliteTables.forEach((tableName) => {
+    const option = document.createElement("option");
+    option.value = tableName;
+    option.textContent = tableName;
+    sqliteTableSelect.appendChild(option);
+  });
+
+  sqliteTableSelect.value = state.sqliteTableName;
+}
+
+async function onSqliteTableChange(event) {
+  const nextTable = event.target.value;
+  if (!nextTable || nextTable === state.sqliteTableName || !state.fileBuffer) {
+    return;
+  }
+
+  state.sqliteTableName = nextTable;
+
+  try {
+    showLoadingProgress(35, `Loading table ${nextTable}...`);
+    await parseCurrentFile();
+    applyFilters();
+    await renderTable();
+    hideLoadingProgress();
+    setStatus(`Showing SQLite table ${nextTable}.`, "ok");
+  } catch (error) {
+    console.error(error);
+    hideLoadingProgress();
+    setStatus(`Could not load table ${nextTable}.`, "warn");
   }
 }
 
@@ -477,19 +617,19 @@ function onColumnHeaderContextMenu(event, header) {
   showColumnContextMenu(header, event.clientX, event.clientY);
 }
 
-function toggleFirstRowIsHeader() {
+async function toggleFirstRowIsHeader() {
   state.firstRowIsHeader = !state.firstRowIsHeader;
   syncMenuCheckboxStates();
 
-  if (!state.fileText) {
+  if (!state.fileText && !state.fileBuffer) {
     setStatus(`First Row Is Header: ${state.firstRowIsHeader ? "On" : "Off"}.`, "ok");
     return;
   }
 
   try {
-    parseCurrentFile();
+    await parseCurrentFile();
     clearSelection();
-    renderTable();
+    await renderTable();
     setStatus(`First Row Is Header: ${state.firstRowIsHeader ? "On" : "Off"}.`, "ok");
   } catch (error) {
     console.error(error);
@@ -703,6 +843,12 @@ function stringifyCellValue(value) {
   if (value === null || value === undefined) {
     return "";
   }
+  if (value instanceof Uint8Array) {
+    return `[BLOB ${value.length} bytes]`;
+  }
+  if (value instanceof ArrayBuffer) {
+    return `[BLOB ${value.byteLength} bytes]`;
+  }
   if (typeof value === "object") {
     return JSON.stringify(value);
   }
@@ -780,6 +926,9 @@ function resetState() {
   state.findMatches = [];
   state.findMatchLookup = new Set();
   state.activeFindMatchIndex = -1;
+  state.fileBuffer = null;
+  state.sqliteTables = [];
+  state.sqliteTableName = "";
   globalSearchInput.value = "";
   findInput.value = "";
   findWrap.classList.add("hidden");
@@ -787,13 +936,17 @@ function resetState() {
   detachVirtualScrollHandler();
   renderGroupByChips();
   groupByZone.dataset.dropActive = "false";
+  updateSqliteTablePicker();
   updateSelectedActionsVisibility();
 }
 
 function closeFile() {
   state.fileText = "";
+  state.fileBuffer = null;
   state.fileName = "";
   state.fileType = "";
+  state.sqliteTables = [];
+  state.sqliteTableName = "";
   resetState();
   tableZone.classList.add("hidden");
   dataTable.innerHTML = "";

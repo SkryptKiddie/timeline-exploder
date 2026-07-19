@@ -343,6 +343,29 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.sqlite-table-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #333;
+}
+
+.sqlite-table-wrap.hidden {
+  display: none;
+}
+
+.sqlite-table-select {
+  min-width: 180px;
+  max-width: 320px;
+  height: 22px;
+  font: inherit;
+  border: 1px solid #b7b7b7;
+  background: #fff;
+  color: inherit;
+  padding: 1px 4px;
+}
+
 .table-scroll {
   flex: 1;
   min-height: 0;
@@ -841,6 +864,7 @@ body[data-theme="dark"] .loading-progress-text,
 body[data-theme="dark"] .find-count,
 body[data-theme="dark"] .global-search-wrap,
 body[data-theme="dark"] .find-wrap,
+body[data-theme="dark"] .sqlite-table-wrap,
 body[data-theme="dark"] .group-by-prefix,
 body[data-theme="dark"] .group-by-label,
 body[data-theme="dark"] .group-by-hint {
@@ -858,6 +882,7 @@ body[data-theme="dark"] .meta-row {
 
 body[data-theme="dark"] .global-search-input,
 body[data-theme="dark"] .find-input,
+body[data-theme="dark"] .sqlite-table-select,
 body[data-theme="dark"] .filter-input,
 body[data-theme="dark"] .filter-operator {
   background: #121a26;
