@@ -3456,6 +3456,17 @@ function renderGroupByChips() {
   }
 
   state.groupByColumns.forEach((header, index) => {
+    const node = document.createElement("div");
+    node.className = "group-chip-node";
+    node.style.setProperty("--group-level", String(index));
+
+    if (index > 0) {
+      const connector = document.createElement("span");
+      connector.className = "group-chip-connector";
+      connector.setAttribute("aria-hidden", "true");
+      node.appendChild(connector);
+    }
+
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "group-chip";
@@ -3477,7 +3488,8 @@ function renderGroupByChips() {
     removeBtn.addEventListener("click", onRemoveGroupField);
     chip.appendChild(removeBtn);
 
-    groupByList.appendChild(chip);
+    node.appendChild(chip);
+    groupByList.appendChild(node);
   });
 
   groupByHint.classList.add("hidden");
