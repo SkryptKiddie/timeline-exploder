@@ -200,6 +200,20 @@ body {
   display: none;
 }
 
+.field-context-menu {
+  position: fixed;
+  background: #ffffff;
+  border: 1px solid var(--win-border-dark);
+  box-shadow: 1px 1px 0 #ffffff inset, 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  padding: 4px;
+  min-width: 190px;
+}
+
+.field-context-menu.hidden {
+  display: none;
+}
+
 .context-menu-item {
   width: 100%;
   text-align: left;
@@ -224,6 +238,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--win-border);
@@ -244,6 +259,40 @@ body {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.advanced-search-wrap {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.advanced-search-wrap.hidden {
+  display: none;
+}
+
+.advanced-search-label,
+.advanced-search-hint {
+  font-size: 12px;
+  color: var(--win-muted);
+}
+
+.advanced-search-input {
+  flex: 1;
+  min-width: min(560px, 100%);
+  height: 22px;
+  font: inherit;
+  border: 1px solid #b7b7b7;
+  background: #fff;
+  color: inherit;
+  padding: 2px 6px;
+}
+
+.advanced-search-wrap.drag-over .advanced-search-input {
+  border-color: #2d67d4;
+  box-shadow: 0 0 0 2px rgba(45, 103, 212, 0.2);
 }
 
 .status-wrap {
@@ -809,6 +858,11 @@ body {
   display: flex;
   align-items: center;
   gap: 3px;
+  cursor: grab;
+}
+
+.col-title:active {
+  cursor: grabbing;
 }
 
 .col-controls {
@@ -1183,7 +1237,8 @@ body[data-theme="dark"] .menu-button[aria-expanded="true"] {
 }
 
 body[data-theme="dark"] .menu-dropdown,
-body[data-theme="dark"] .column-context-menu {
+body[data-theme="dark"] .column-context-menu,
+body[data-theme="dark"] .field-context-menu {
   background: #1a2230;
   box-shadow: 1px 1px 0 #2a3447 inset, 0 2px 8px rgba(0, 0, 0, 0.45);
 }
@@ -1205,6 +1260,12 @@ body[data-theme="dark"] .tool-btn {
   border-left-color: #48566c;
   border-right-color: #1b2230;
   border-bottom-color: #1b2230;
+}
+
+body[data-theme="dark"] .advanced-search-input {
+  background: #121a26;
+  border-color: #415069;
+  color: #e7edf6;
 }
 
 body[data-theme="dark"] .tool-btn:active {
@@ -1470,7 +1531,8 @@ body[data-theme="material-light"] .menu-button[aria-expanded="true"] {
 
 body[data-theme="material-light"] .menu-dropdown,
 body[data-theme="material-light"] .menu-submenu,
-body[data-theme="material-light"] .column-context-menu {
+body[data-theme="material-light"] .column-context-menu,
+body[data-theme="material-light"] .field-context-menu {
   border-radius: 12px;
   border-color: #d5dde2;
   box-shadow: 0 12px 28px rgba(38, 50, 56, 0.16);
@@ -1484,6 +1546,11 @@ body[data-theme="material-light"] .controls {
 body[data-theme="material-light"] .tool-btn {
   background: #f4f8fb;
   border: 1px solid #cfd8dc;
+  border-radius: 8px;
+}
+
+body[data-theme="material-light"] .advanced-search-input {
+  border-color: #c3d0d8;
   border-radius: 8px;
 }
 
@@ -1587,7 +1654,8 @@ body[data-theme="material-dark"] .menu-button[aria-expanded="true"] {
 
 body[data-theme="material-dark"] .menu-dropdown,
 body[data-theme="material-dark"] .menu-submenu,
-body[data-theme="material-dark"] .column-context-menu {
+body[data-theme="material-dark"] .column-context-menu,
+body[data-theme="material-dark"] .field-context-menu {
   background: #202834;
   border-color: #46576d;
   border-radius: 12px;
@@ -1609,6 +1677,13 @@ body[data-theme="material-dark"] .tool-btn {
   background: #283241;
   border: 1px solid #4b5d73;
   border-radius: 8px;
+}
+
+body[data-theme="material-dark"] .advanced-search-input {
+  background: #131b26;
+  border-color: #4f647d;
+  border-radius: 8px;
+  color: #e6edf5;
 }
 
 body[data-theme="material-dark"] .tool-btn:active {
@@ -1827,7 +1902,8 @@ body[data-theme="neon-party"] .menu-button[aria-expanded="true"] {
 
 body[data-theme="neon-party"] .menu-dropdown,
 body[data-theme="neon-party"] .menu-submenu,
-body[data-theme="neon-party"] .column-context-menu {
+body[data-theme="neon-party"] .column-context-menu,
+body[data-theme="neon-party"] .field-context-menu {
   background: #1a1035;
   border-color: #ff63d0;
   box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.5) inset, 0 14px 34px rgba(0, 0, 0, 0.55);
@@ -1849,6 +1925,12 @@ body[data-theme="neon-party"] .tool-btn {
   border: 1px solid #ffe45e;
   color: #ffffff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+body[data-theme="neon-party"] .advanced-search-input {
+  background: #180f35;
+  border-color: #22d3ee;
+  color: #fdf3ff;
 }
 
 body[data-theme="neon-party"] .tool-btn:active {

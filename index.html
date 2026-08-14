@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Timeline Exploder</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
   </head>
   <body>
     <main class="app-shell">
@@ -110,8 +111,15 @@
             <button id="copySelectedBtn" class="tool-btn hidden" type="button">Copy Selected</button>
             <button id="copyVisibleBtn" class="tool-btn" type="button">Copy Visible</button>
             <button id="clearFiltersBtn" class="tool-btn" type="button">Clear Filters</button>
+            <button id="advancedSearchToggleBtn" class="tool-btn" type="button" aria-expanded="false">Advanced Query</button>
           </div>
           <p id="status" class="status" aria-live="polite">Use File > Open, the Open File button, or drag and drop a file to load CSV/JSON/SQLite.</p>
+          <div id="advancedSearchWrap" class="advanced-search-wrap hidden">
+            <button id="advancedSearchRunBtn" class="tool-btn" type="button">Run</button>
+            <button id="advancedSearchClearBtn" class="tool-btn" type="button">Clear</button>
+            <input id="advancedSearchInput" class="advanced-search-input" type="text" placeholder='status:"failed" AND (user:admin OR user:root)' />
+            <span class="advanced-search-hint">Use field:value, AND, OR, NOT, parentheses, and regex with /pattern/</span>
+          </div>
         </section>
       </div>
 
@@ -230,6 +238,13 @@
           <button id="contextMenuUnpin" class="context-menu-item" type="button" role="menuitem">Unpin Column</button>
           <button id="contextMenuStats" class="context-menu-item" type="button" role="menuitem">Column Stats</button>
           <button id="contextMenuHide" class="context-menu-item" type="button" role="menuitem">Hide Column</button>
+        </div>
+        <div id="fieldContextMenu" class="column-context-menu field-context-menu hidden" role="menu">
+          <button id="fieldMenuCopyValue" class="context-menu-item" type="button" role="menuitem">Copy Value</button>
+          <button id="fieldMenuCopyCell" class="context-menu-item" type="button" role="menuitem">Copy Cell</button>
+          <button id="fieldMenuFilterEquals" class="context-menu-item" type="button" role="menuitem">Filter: Equals This Value</button>
+          <button id="fieldMenuFilterNotEquals" class="context-menu-item" type="button" role="menuitem">Filter: Not This Value</button>
+          <button id="fieldMenuVirusTotal" class="context-menu-item" type="button" role="menuitem">VirusTotal Lookup</button>
         </div>
       </section>
     </main>

@@ -7,6 +7,11 @@ const tableZone = document.getElementById("tableZone");
 const rowCount = document.getElementById("rowCount");
 const columnCount = document.getElementById("columnCount");
 const globalSearchInput = document.getElementById("globalSearchInput");
+const advancedSearchToggleBtn = document.getElementById("advancedSearchToggleBtn");
+const advancedSearchWrap = document.getElementById("advancedSearchWrap");
+const advancedSearchInput = document.getElementById("advancedSearchInput");
+const advancedSearchRunBtn = document.getElementById("advancedSearchRunBtn");
+const advancedSearchClearBtn = document.getElementById("advancedSearchClearBtn");
 const groupByZone = document.getElementById("groupByZone");
 const groupByHint = document.getElementById("groupByHint");
 const groupByLabel = document.getElementById("groupByLabel");
@@ -73,6 +78,12 @@ const contextMenuPin = document.getElementById("contextMenuPin");
 const contextMenuUnpin = document.getElementById("contextMenuUnpin");
 const contextMenuStats = document.getElementById("contextMenuStats");
 const contextMenuHide = document.getElementById("contextMenuHide");
+const fieldContextMenu = document.getElementById("fieldContextMenu");
+const fieldMenuCopyValue = document.getElementById("fieldMenuCopyValue");
+const fieldMenuCopyCell = document.getElementById("fieldMenuCopyCell");
+const fieldMenuFilterEquals = document.getElementById("fieldMenuFilterEquals");
+const fieldMenuFilterNotEquals = document.getElementById("fieldMenuFilterNotEquals");
+const fieldMenuVirusTotal = document.getElementById("fieldMenuVirusTotal");
 const columnStatsOverlay = document.getElementById("columnStatsOverlay");
 const columnStatsCloseBtn = document.getElementById("columnStatsCloseBtn");
 const columnStatsTitle = document.getElementById("columnStatsTitle");
@@ -93,6 +104,9 @@ const state = {
   filteredRows: [],
   filters: {},
   globalSearch: "",
+  advancedSearch: "",
+  advancedSearchAst: null,
+  advancedSearchError: "",
   selectedRowIds: new Set(),
   columnWidths: {},
   rowNumberWidth: 72,
@@ -165,6 +179,14 @@ const columnContextState = {
   clientY: 0
 };
 
+const fieldContextState = {
+  header: null,
+  rowId: null,
+  value: "",
+  clientX: 0,
+  clientY: 0
+};
+
 const fileDropState = {
   dragDepth: 0
 };
@@ -176,6 +198,7 @@ const THEME_STORAGE_KEY = "timelineExploderTheme";
 const CELL_OVERLAY_FONT_MIN = 10;
 const CELL_OVERLAY_FONT_MAX = 28;
 const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "neon-party"]);
+const ADVANCED_FIELD_DRAG_MIME = "application/x-timeline-exploder-header";
 const THEME_LABELS = {
   light: "Classic Light",
   dark: "Classic Dark",
@@ -282,6 +305,434 @@ function evaluateFilterRule(rawValue, filterDef) {
   }
 }
 
+function tokenizeAdvancedQuery(query) {
+  const tokens = [];
+  let index = 0;
+
+  const pushWord = (value) => {
+    if (!value) {
+      return;
+    }
+    tokens.push({ type: "word", value });
+  };
+
+  while (index < query.length) {
+    const char = query[index];
+
+    if (/\s/.test(char)) {
+      index += 1;
+      continue;
+    }
+
+    if (char === "(") {
+      tokens.push({ type: "lparen" });
+      index += 1;
+      continue;
+    }
+
+    if (char === ")") {
+      tokens.push({ type: "rparen" });
+      index += 1;
+      continue;
+    }
+
+    if (char === ":" || char === "=" || char === "<" || char === ">" || char === "!") {
+      const two = query.slice(index, index + 2);
+      if (two === ">=" || two === "<=" || two === "!=") {
+        tokens.push({ type: "comparator", value: two });
+        index += 2;
+        continue;
+      }
+      if (char === "!") {
+        throw new Error("Unsupported operator '!'. Use '!=' for not-equal or NOT for negation.");
+      }
+      if (char === ":" || char === "=" || char === "<" || char === ">") {
+        tokens.push({ type: "comparator", value: char });
+        index += 1;
+        continue;
+      }
+    }
+
+    if (char === '"' || char === "'") {
+      const quote = char;
+      index += 1;
+      let value = "";
+      let escaped = false;
+      while (index < query.length) {
+        const nextChar = query[index];
+        index += 1;
+        if (escaped) {
+          value += nextChar;
+          escaped = false;
+          continue;
+        }
+        if (nextChar === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (nextChar === quote) {
+          break;
+        }
+        value += nextChar;
+      }
+      tokens.push({ type: "quoted", value });
+      continue;
+    }
+
+    if (char === "/") {
+      let cursor = index + 1;
+      let pattern = "";
+      let escaped = false;
+      while (cursor < query.length) {
+        const nextChar = query[cursor];
+        if (escaped) {
+          pattern += nextChar;
+          escaped = false;
+          cursor += 1;
+          continue;
+        }
+        if (nextChar === "\\") {
+          pattern += nextChar;
+          escaped = true;
+          cursor += 1;
+          continue;
+        }
+        if (nextChar === "/") {
+          break;
+        }
+        pattern += nextChar;
+        cursor += 1;
+      }
+      if (cursor < query.length && query[cursor] === "/") {
+        cursor += 1;
+        let flags = "";
+        while (cursor < query.length && /[a-z]/i.test(query[cursor])) {
+          flags += query[cursor];
+          cursor += 1;
+        }
+        tokens.push({ type: "regex", pattern, flags });
+        index = cursor;
+        continue;
+      }
+    }
+
+    let end = index;
+    while (end < query.length && !/\s|\(|\)|:|=|<|>|!/.test(query[end])) {
+      end += 1;
+    }
+    if (end === index) {
+      throw new Error(`Unexpected token '${char}' at position ${index + 1}`);
+    }
+    pushWord(query.slice(index, end));
+    index = end;
+  }
+
+  return tokens;
+}
+
+function isAdvancedQueryKeyword(token, keyword) {
+  return token && token.type === "word" && token.value.toUpperCase() === keyword;
+}
+
+function isAdvancedQueryClauseStart(token) {
+  return token && (token.type === "word" || token.type === "quoted" || token.type === "regex" || token.type === "lparen");
+}
+
+function parseAdvancedQuery(query) {
+  const tokens = tokenizeAdvancedQuery(query);
+  let index = 0;
+
+  const peek = () => tokens[index] || null;
+  const consume = () => tokens[index++] || null;
+
+  const parsePrimary = () => {
+    const token = peek();
+    if (!token) {
+      throw new Error("Unexpected end of query");
+    }
+
+    if (token.type === "lparen") {
+      consume();
+      const expr = parseOr();
+      const close = consume();
+      if (!close || close.type !== "rparen") {
+        throw new Error("Missing closing parenthesis");
+      }
+      return expr;
+    }
+
+    return parseClause();
+  };
+
+  const parseUnary = () => {
+    const token = peek();
+    if (isAdvancedQueryKeyword(token, "NOT")) {
+      consume();
+      return { type: "not", child: parseUnary() };
+    }
+    return parsePrimary();
+  };
+
+  const parseAnd = () => {
+    let left = parseUnary();
+
+    while (true) {
+      const token = peek();
+      if (isAdvancedQueryKeyword(token, "AND")) {
+        consume();
+        left = { type: "and", left, right: parseUnary() };
+        continue;
+      }
+      if (isAdvancedQueryClauseStart(token) && !isAdvancedQueryKeyword(token, "OR") && !isAdvancedQueryKeyword(token, "AND")) {
+        left = { type: "and", left, right: parseUnary() };
+        continue;
+      }
+      break;
+    }
+
+    return left;
+  };
+
+  const parseOr = () => {
+    let left = parseAnd();
+
+    while (isAdvancedQueryKeyword(peek(), "OR")) {
+      consume();
+      left = { type: "or", left, right: parseAnd() };
+    }
+
+    return left;
+  };
+
+  const parseFieldClause = (fieldName) => {
+    const comparatorToken = peek();
+    if (!comparatorToken || comparatorToken.type !== "comparator") {
+      return { type: "term", value: fieldName };
+    }
+
+    consume();
+    const valueToken = consume();
+    if (!valueToken) {
+      throw new Error(`Missing value after ${fieldName}${comparatorToken.value}`);
+    }
+
+    let value = valueToken.value || "";
+    let kind = valueToken.type;
+    if (valueToken.type === "regex") {
+      kind = "regex";
+      value = { pattern: valueToken.pattern, flags: valueToken.flags };
+    }
+    if (valueToken.type === "quoted" || valueToken.type === "word") {
+      kind = valueToken.type;
+    }
+
+    return {
+      type: "field",
+      field: fieldName,
+      comparator: comparatorToken.value,
+      value,
+      valueKind: kind
+    };
+  };
+
+  const parseClause = () => {
+    const first = consume();
+    if (!first) {
+      throw new Error("Unexpected end of query");
+    }
+
+    if (first.type === "quoted") {
+      const next = peek();
+      if (next && next.type === "comparator") {
+        return parseFieldClause(first.value);
+      }
+      return { type: "term", value: first.value };
+    }
+
+    if (first.type === "regex") {
+      return { type: "regex", value: { pattern: first.pattern, flags: first.flags } };
+    }
+
+    if (first.type !== "word") {
+      throw new Error(`Unexpected token near ${first.type}`);
+    }
+
+    const next = peek();
+    if (next && next.type === "comparator") {
+      return parseFieldClause(first.value);
+    }
+
+    return { type: "term", value: first.value };
+  };
+
+  if (!tokens.length) {
+    return null;
+  }
+
+  const ast = parseOr();
+  if (index < tokens.length) {
+    throw new Error(`Unexpected token ${tokens[index].type}`);
+  }
+  return ast;
+}
+
+function getComparableNumber(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return null;
+  }
+  const numeric = Number(text);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function compareFieldValues(rawValue, comparator, expected, expectedKind) {
+  const actual = String(rawValue || "");
+  const actualLower = actual.toLowerCase();
+
+  if (comparator === ":") {
+    if (expectedKind === "regex") {
+      try {
+        return new RegExp(expected.pattern, expected.flags || "i").test(actual);
+      } catch {
+        return false;
+      }
+    }
+    return actualLower.includes(String(expected || "").toLowerCase());
+  }
+
+  if (comparator === "!=") {
+    if (expectedKind === "regex") {
+      try {
+        return !new RegExp(expected.pattern, expected.flags || "i").test(actual);
+      } catch {
+        return false;
+      }
+    }
+    return actualLower !== String(expected || "").toLowerCase();
+  }
+
+  if (comparator === "=" || comparator === "==") {
+    return actualLower === String(expected || "").toLowerCase();
+  }
+
+  if (comparator === ">" || comparator === ">=" || comparator === "<" || comparator === "<=") {
+    const actualTimestamp = parseTimestampValue(actual);
+    const expectedTimestamp = expectedKind === "quoted" || expectedKind === "word" ? parseTimestampValue(String(expected || "")) : null;
+    const actualNumber = getComparableNumber(actual);
+    const expectedNumber = getComparableNumber(expected);
+    let left = null;
+    let right = null;
+
+    if (Number.isFinite(actualTimestamp) && Number.isFinite(expectedTimestamp)) {
+      left = actualTimestamp;
+      right = expectedTimestamp;
+    } else if (Number.isFinite(actualNumber) && Number.isFinite(expectedNumber)) {
+      left = actualNumber;
+      right = expectedNumber;
+    } else {
+      left = actualLower;
+      right = String(expected || "").toLowerCase();
+    }
+
+    if (comparator === ">") {
+      return left > right;
+    }
+    if (comparator === ">=") {
+      return left >= right;
+    }
+    if (comparator === "<") {
+      return left < right;
+    }
+    return left <= right;
+  }
+
+  return actualLower.includes(String(expected || "").toLowerCase());
+}
+
+function evaluateAdvancedQueryAst(node, row) {
+  if (!node) {
+    return true;
+  }
+
+  switch (node.type) {
+    case "and":
+      return evaluateAdvancedQueryAst(node.left, row) && evaluateAdvancedQueryAst(node.right, row);
+    case "or":
+      return evaluateAdvancedQueryAst(node.left, row) || evaluateAdvancedQueryAst(node.right, row);
+    case "not":
+      return !evaluateAdvancedQueryAst(node.child, row);
+    case "regex": {
+      try {
+        return new RegExp(node.value.pattern, node.value.flags || "i").test(Object.values(row).join(" "));
+      } catch {
+        return false;
+      }
+    }
+    case "field": {
+      const header = state.headers.find((candidate) => candidate.toLowerCase() === node.field.toLowerCase());
+      if (!header) {
+        return false;
+      }
+      return compareFieldValues(row[header], node.comparator, node.value, node.valueKind);
+    }
+    case "term": {
+      const needle = String(node.value || "").toLowerCase();
+      if (!needle) {
+        return true;
+      }
+      return state.headers.some((header) => String(row[header] || "").toLowerCase().includes(needle));
+    }
+    default:
+      return true;
+  }
+}
+
+function evaluateAdvancedQuery(row) {
+  const query = state.advancedSearch.trim();
+  if (!query) {
+    state.advancedSearchError = "";
+    advancedSearchInput.removeAttribute("aria-invalid");
+    advancedSearchInput.title = "";
+    return true;
+  }
+
+  try {
+    const ast = parseAdvancedQuery(query);
+    state.advancedSearchError = "";
+    advancedSearchInput.removeAttribute("aria-invalid");
+    advancedSearchInput.title = "";
+    return evaluateAdvancedQueryAst(ast, row);
+  } catch (error) {
+    state.advancedSearchError = error instanceof Error ? error.message : "Invalid advanced query";
+    advancedSearchInput.setAttribute("aria-invalid", "true");
+    advancedSearchInput.title = state.advancedSearchError;
+    return true;
+  }
+}
+
+function compileAdvancedQuery() {
+  const query = state.advancedSearch.trim();
+  if (!query) {
+    state.advancedSearchError = "";
+    advancedSearchInput.removeAttribute("aria-invalid");
+    advancedSearchInput.title = "";
+    return null;
+  }
+
+  try {
+    const ast = parseAdvancedQuery(query);
+    state.advancedSearchError = "";
+    advancedSearchInput.removeAttribute("aria-invalid");
+    advancedSearchInput.title = "";
+    return ast;
+  } catch (error) {
+    state.advancedSearchError = error instanceof Error ? error.message : "Invalid advanced query";
+    advancedSearchInput.setAttribute("aria-invalid", "true");
+    advancedSearchInput.title = state.advancedSearchError;
+    return undefined;
+  }
+}
+
 fileInput.addEventListener("change", onFileSelected);
 openFileBtn.addEventListener("click", openFilePicker);
 copySelectedBtn.addEventListener("click", copySelectedRows);
@@ -292,6 +743,14 @@ fileMenuBtn.addEventListener("click", toggleFileMenu);
 optionsMenuBtn.addEventListener("click", toggleOptionsMenu);
 helpBtn.addEventListener("click", openHelpOverlay);
 globalSearchInput.addEventListener("input", onGlobalSearchInput);
+advancedSearchToggleBtn.addEventListener("click", toggleAdvancedSearchPanel);
+advancedSearchRunBtn.addEventListener("click", applyAdvancedSearchInput);
+advancedSearchClearBtn.addEventListener("click", clearAdvancedSearchQuery);
+advancedSearchInput.addEventListener("keydown", onAdvancedSearchInputKeyDown);
+advancedSearchWrap.addEventListener("dragenter", onAdvancedSearchDragEnter);
+advancedSearchWrap.addEventListener("dragover", onAdvancedSearchDragOver);
+advancedSearchWrap.addEventListener("dragleave", onAdvancedSearchDragLeave);
+advancedSearchWrap.addEventListener("drop", onAdvancedSearchDrop);
 sqliteTableSelect.addEventListener("change", onSqliteTableChange);
 helpCloseBtn.addEventListener("click", closeHelpOverlay);
 helpOverlay.addEventListener("click", onHelpOverlayClick);
@@ -300,6 +759,7 @@ cellOverlay.addEventListener("click", onCellOverlayClick);
 columnStatsCloseBtn.addEventListener("click", closeColumnStatsOverlay);
 columnStatsOverlay.addEventListener("click", onColumnStatsOverlayClick);
 dataTable.addEventListener("dblclick", onDataTableDoubleClick);
+dataTable.addEventListener("contextmenu", onDataTableContextMenu);
 cellFontSizeInput.addEventListener("input", onCellOverlayFontSizeInput);
 cellFontDecreaseBtn.addEventListener("click", () => adjustCellOverlayFontSize(-1));
 cellFontIncreaseBtn.addEventListener("click", () => adjustCellOverlayFontSize(1));
@@ -344,6 +804,26 @@ timeWindowMenuItem.addEventListener("click", (event) => {
 
 timeWindowEnabledMenuItem.addEventListener("click", onTimeWindowEnabledMenuItemClick);
 timeWindowFieldMenu.addEventListener("click", onTimeWindowFieldMenuClick);
+
+fieldMenuCopyValue.addEventListener("click", () => {
+  copyFieldContextValue();
+});
+
+fieldMenuCopyCell.addEventListener("click", () => {
+  copyFieldContextCell();
+});
+
+fieldMenuFilterEquals.addEventListener("click", () => {
+  applyFieldFilter("equals");
+});
+
+fieldMenuFilterNotEquals.addEventListener("click", () => {
+  applyFieldFilter("not_equals");
+});
+
+fieldMenuVirusTotal.addEventListener("click", () => {
+  lookupFieldInVirusTotal();
+});
 
 themeLightMenuItem.addEventListener("click", () => {
   closeAllMenus();
@@ -770,9 +1250,14 @@ function closeAllMenus() {
 }
 
 function onDocumentClick(event) {
-  const anyOpen = !fileMenu.classList.contains("hidden") || !optionsMenu.classList.contains("hidden");
+  const anyOpen =
+    !fileMenu.classList.contains("hidden") ||
+    !optionsMenu.classList.contains("hidden") ||
+    !columnContextMenu.classList.contains("hidden") ||
+    !fieldContextMenu.classList.contains("hidden");
   if (!anyOpen) {
     hideColumnContextMenu();
+    hideFieldContextMenu();
     return;
   }
 
@@ -781,6 +1266,7 @@ function onDocumentClick(event) {
     closeAllMenus();
   }
   hideColumnContextMenu();
+  hideFieldContextMenu();
 }
 
 function isEditableTarget(target) {
@@ -797,6 +1283,11 @@ function isEditableTarget(target) {
 }
 
 function onDocumentKeyDown(event) {
+  if (event.key === "Escape" && !fieldContextMenu.classList.contains("hidden")) {
+    hideFieldContextMenu();
+    return;
+  }
+
   if (event.key === "Escape" && !columnStatsOverlay.classList.contains("hidden")) {
     closeColumnStatsOverlay();
     return;
@@ -835,6 +1326,17 @@ function onDocumentKeyDown(event) {
     event.preventDefault();
     globalSearchInput.focus();
     globalSearchInput.select();
+    return;
+  }
+
+  if (isAltOnly && key === "a" && state.headers.length) {
+    event.preventDefault();
+    if (advancedSearchWrap.classList.contains("hidden")) {
+      toggleAdvancedSearchPanel();
+    } else {
+      advancedSearchInput.focus();
+      advancedSearchInput.select();
+    }
     return;
   }
 
@@ -881,6 +1383,7 @@ function onDocumentKeyDown(event) {
   if (event.key === "Escape") {
     closeAllMenus();
     hideColumnContextMenu();
+    hideFieldContextMenu();
     if (document.activeElement === findInput) {
       findInput.blur();
     }
@@ -919,6 +1422,29 @@ function onDataTableDoubleClick(event) {
     value,
     rowIndex: Number.isFinite(rowIndex) ? rowIndex : null
   });
+}
+
+function onDataTableContextMenu(event) {
+  const fieldCell = event.target.closest("td[data-row-id][data-header]");
+  if (fieldCell) {
+    event.preventDefault();
+    event.stopPropagation();
+    showFieldContextMenu(
+      {
+        header: fieldCell.dataset.header || "",
+        rowId: fieldCell.dataset.rowId || "",
+        value: fieldCell.textContent || ""
+      },
+      event.clientX,
+      event.clientY
+    );
+    return;
+  }
+
+  const headerCell = event.target.closest("th[data-header]");
+  if (headerCell) {
+    onColumnHeaderContextMenu(event, headerCell.dataset.header || "");
+  }
 }
 
 function openCellOverlay({ header, value, rowIndex }) {
@@ -1099,6 +1625,29 @@ function openColumnStatsOverlay(header) {
   columnStatsCloseBtn.focus();
 }
 
+function copyTextToClipboard(text) {
+  if (!text) {
+    setStatus("Nothing to copy.", "warn");
+    return;
+  }
+
+  const clipboard = navigator.clipboard;
+  if (clipboard && typeof clipboard.writeText === "function") {
+    clipboard
+      .writeText(text)
+      .then(() => setStatus("Copied to clipboard.", "ok"))
+      .catch((error) => {
+        console.error(error);
+        fallbackCopy(text);
+        setStatus("Clipboard API blocked, copied via fallback.", "warn");
+      });
+    return;
+  }
+
+  fallbackCopy(text);
+  setStatus("Copied to clipboard.", "ok");
+}
+
 function clampCellOverlayFontSize(size) {
   return Math.min(CELL_OVERLAY_FONT_MAX, Math.max(CELL_OVERLAY_FONT_MIN, size));
 }
@@ -1232,7 +1781,80 @@ function renderCellOverlayValue(rawValue) {
 function onColumnHeaderContextMenu(event, header) {
   event.preventDefault();
   event.stopPropagation();
+  hideFieldContextMenu();
   showColumnContextMenu(header, event.clientX, event.clientY);
+}
+
+function showFieldContextMenu({ header, rowId, value }, clientX, clientY) {
+  if (!header) {
+    return;
+  }
+
+  fieldContextState.header = header;
+  fieldContextState.rowId = rowId;
+  fieldContextState.value = value;
+  fieldContextState.clientX = clientX;
+  fieldContextState.clientY = clientY;
+
+  fieldMenuCopyValue.textContent = "Copy Value";
+  fieldMenuCopyCell.textContent = "Copy Cell";
+  fieldMenuFilterEquals.textContent = `Filter: ${header} = this value`;
+  fieldMenuFilterNotEquals.textContent = `Filter: ${header} != this value`;
+  fieldMenuVirusTotal.textContent = `VirusTotal Lookup for ${header}`;
+
+  fieldContextMenu.classList.remove("hidden");
+  fieldContextMenu.style.left = `${clientX}px`;
+  fieldContextMenu.style.top = `${clientY}px`;
+  hideColumnContextMenu();
+}
+
+function hideFieldContextMenu() {
+  fieldContextMenu.classList.add("hidden");
+  fieldContextState.header = null;
+  fieldContextState.rowId = null;
+  fieldContextState.value = "";
+}
+
+function copyFieldContextValue() {
+  const value = fieldContextState.value;
+  hideFieldContextMenu();
+  copyTextToClipboard(value);
+}
+
+function copyFieldContextCell() {
+  const { header, value } = fieldContextState;
+  hideFieldContextMenu();
+  copyTextToClipboard(`${header}: ${value}`);
+}
+
+function applyFieldFilter(operator) {
+  const header = fieldContextState.header;
+  const value = fieldContextState.value;
+  hideFieldContextMenu();
+
+  if (!header) {
+    return;
+  }
+
+  state.filters[header] = { operator, value };
+  applyFilters();
+  renderTable();
+  setStatus(`Applied filter on ${header}.`, "ok");
+}
+
+function lookupFieldInVirusTotal() {
+  const value = fieldContextState.value.trim();
+  const header = fieldContextState.header || "Field";
+  hideFieldContextMenu();
+
+  if (!value) {
+    setStatus("Nothing to look up on VirusTotal.", "warn");
+    return;
+  }
+
+  const vtUrl = `https://www.virustotal.com/gui/search/${encodeURIComponent(value)}`;
+  window.open(vtUrl, "_blank", "noopener,noreferrer");
+  setStatus(`Opened VirusTotal lookup for ${header}.`, "ok");
 }
 
 async function toggleFirstRowIsHeader() {
@@ -1746,6 +2368,9 @@ function hydrateState(headers, rows) {
   state.rows = rows.map((row, index) => ({ ...row, __rowId: String(index), __sourceIndex: index }));
   state.filters = {};
   state.globalSearch = "";
+  state.advancedSearch = "";
+  state.advancedSearchAst = null;
+  state.advancedSearchError = "";
   state.filteredRows = state.rows;
   state.visibleRowIds = [];
   state.sort = { header: null, direction: null };
@@ -1756,6 +2381,9 @@ function hydrateState(headers, rows) {
   detectDateTimeHeaders();
   syncTimeWindowColumnWithDetectedHeaders();
   globalSearchInput.value = "";
+  advancedSearchInput.value = "";
+  advancedSearchInput.removeAttribute("aria-invalid");
+  advancedSearchInput.title = "";
   ensureColumnWidths();
   updateSelectedActionsVisibility();
   updateTimeWindowControls();
@@ -1827,6 +2455,9 @@ function resetState() {
   state.visibleRowIds = [];
   state.filters = {};
   state.globalSearch = "";
+  state.advancedSearch = "";
+  state.advancedSearchAst = null;
+  state.advancedSearchError = "";
   state.sort = { header: null, direction: null };
   state.selectedRowIds = new Set();
   state.columnWidths = {};
@@ -1845,6 +2476,9 @@ function resetState() {
   state.datetimeHeaders = [];
   state.timeWindow = { enabled: false, column: "", start: "", end: "" };
   globalSearchInput.value = "";
+  advancedSearchInput.value = "";
+  advancedSearchInput.removeAttribute("aria-invalid");
+  advancedSearchInput.title = "";
   findInput.value = "";
   findWrap.classList.add("hidden");
   updateFindCount();
@@ -2276,6 +2910,12 @@ function appendTableHeader(thead, visibleHeaders) {
     const title = document.createElement("div");
     title.className = "col-title";
     title.textContent = header;
+    title.dataset.header = header;
+    title.draggable = true;
+    title.title = "Drag into Group By or Advanced Search";
+    title.addEventListener("mousedown", (event) => event.stopPropagation());
+    title.addEventListener("dragstart", onHeaderTitleDragStart);
+    title.addEventListener("dragend", onHeaderTitleDragEnd);
 
     const filterDef = normalizeFilterDefinition(state.filters[header]) || {
       operator: "contains",
@@ -2997,13 +3637,8 @@ function applyFilters() {
   const timeWindow = getActiveTimeWindowFilter();
   const hasColumnFilters = filters.length > 0;
   const hasGlobalSearch = globalNeedle.length > 0;
+  const hasAdvancedSearch = Boolean(state.advancedSearchAst);
   const hasTimeWindow = Boolean(timeWindow);
-
-  if (!hasColumnFilters && !hasGlobalSearch && !hasTimeWindow) {
-    state.filteredRows = [...state.rows];
-    applySort();
-    return;
-  }
 
   state.filteredRows = state.rows.filter((row) => {
     const columnsOk = !hasColumnFilters || filters.every(([header, rule]) => {
@@ -3011,6 +3646,10 @@ function applyFilters() {
     });
 
     if (!columnsOk) {
+      return false;
+    }
+
+    if (hasAdvancedSearch && !evaluateAdvancedQueryAst(state.advancedSearchAst, row)) {
       return false;
     }
 
@@ -3040,6 +3679,178 @@ function applyFilters() {
 function onGlobalSearchInput(event) {
   state.globalSearch = event.target.value || "";
   scheduleGlobalSearchApply();
+}
+
+let advancedSearchDragDepth = 0;
+
+function hasAdvancedFieldDragType(event) {
+  const types = event.dataTransfer?.types;
+  if (!types) {
+    return false;
+  }
+  return Array.from(types).includes(ADVANCED_FIELD_DRAG_MIME);
+}
+
+function getDraggedAdvancedField(event) {
+  const dt = event.dataTransfer;
+  if (!dt) {
+    return "";
+  }
+  return dt.getData(ADVANCED_FIELD_DRAG_MIME) || dt.getData("text/plain") || "";
+}
+
+function setAdvancedSearchDropActive(isActive) {
+  advancedSearchWrap.classList.toggle("drag-over", isActive);
+}
+
+function onHeaderTitleDragStart(event) {
+  const header = event.currentTarget?.dataset?.header;
+  if (!header || !event.dataTransfer) {
+    return;
+  }
+
+  event.dataTransfer.effectAllowed = "copy";
+  event.dataTransfer.setData(ADVANCED_FIELD_DRAG_MIME, header);
+  event.dataTransfer.setData("text/plain", header);
+}
+
+function onHeaderTitleDragEnd() {
+  advancedSearchDragDepth = 0;
+  setAdvancedSearchDropActive(false);
+}
+
+function onAdvancedSearchDragEnter(event) {
+  if (!hasAdvancedFieldDragType(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  advancedSearchDragDepth += 1;
+  setAdvancedSearchDropActive(true);
+}
+
+function onAdvancedSearchDragOver(event) {
+  if (!hasAdvancedFieldDragType(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "copy";
+  }
+  setAdvancedSearchDropActive(true);
+}
+
+function onAdvancedSearchDragLeave(event) {
+  if (!hasAdvancedFieldDragType(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  advancedSearchDragDepth = Math.max(0, advancedSearchDragDepth - 1);
+  if (advancedSearchDragDepth === 0) {
+    setAdvancedSearchDropActive(false);
+  }
+}
+
+function needsQuotedAdvancedFieldName(header) {
+  return /[\s()\:\"'=<>!\/]/.test(header);
+}
+
+function toAdvancedFieldToken(header) {
+  const field = String(header || "").trim();
+  if (!field) {
+    return "";
+  }
+  if (needsQuotedAdvancedFieldName(field)) {
+    const escaped = field.replace(/\\/g, "\\\\").replace(/\"/g, "\\\"");
+    return `\"${escaped}\":`;
+  }
+  return `${field}:`;
+}
+
+function insertAdvancedFieldIntoQuery(header) {
+  const token = toAdvancedFieldToken(header);
+  if (!token) {
+    return;
+  }
+
+  const input = advancedSearchInput;
+  const start = Number.isFinite(input.selectionStart) ? input.selectionStart : input.value.length;
+  const end = Number.isFinite(input.selectionEnd) ? input.selectionEnd : input.value.length;
+  const before = input.value.slice(0, start);
+  const after = input.value.slice(end);
+  const needsJoiner = before.trim().length > 0 && !/[\s(]$/.test(before);
+  const insertion = `${needsJoiner ? " AND " : ""}${token}`;
+
+  input.value = `${before}${insertion}${after}`;
+  const caret = before.length + insertion.length;
+  input.focus();
+  input.setSelectionRange(caret, caret);
+  state.advancedSearch = input.value;
+  setStatus(`Added ${header} to advanced query. Press Enter or Run to apply.`, "ok");
+}
+
+function onAdvancedSearchDrop(event) {
+  const header = getDraggedAdvancedField(event);
+  if (!header) {
+    return;
+  }
+
+  event.preventDefault();
+  advancedSearchDragDepth = 0;
+  setAdvancedSearchDropActive(false);
+  insertAdvancedFieldIntoQuery(header);
+}
+
+function onAdvancedSearchInputKeyDown(event) {
+  if (event.key !== "Enter") {
+    return;
+  }
+
+  event.preventDefault();
+  applyAdvancedSearchInput();
+}
+
+function applyAdvancedSearchInput() {
+  state.advancedSearch = advancedSearchInput.value || "";
+  const ast = compileAdvancedQuery();
+
+  if (state.advancedSearch.trim() && ast === undefined) {
+    setStatus(`Advanced query error: ${state.advancedSearchError}`, "warn");
+    return;
+  }
+
+  state.advancedSearchAst = ast;
+  applyFilters();
+  renderTable();
+
+  if (state.advancedSearch.trim()) {
+    setStatus("Advanced query applied.", "ok");
+  }
+}
+
+function clearAdvancedSearchQuery() {
+  state.advancedSearch = "";
+  state.advancedSearchAst = null;
+  state.advancedSearchError = "";
+  advancedSearchInput.value = "";
+  advancedSearchInput.removeAttribute("aria-invalid");
+  advancedSearchInput.title = "";
+  applyFilters();
+  renderTable();
+  setStatus("Advanced query cleared.", "ok");
+}
+
+function toggleAdvancedSearchPanel() {
+  const willShow = advancedSearchWrap.classList.contains("hidden");
+  advancedSearchWrap.classList.toggle("hidden", !willShow);
+  advancedSearchToggleBtn.setAttribute("aria-expanded", willShow ? "true" : "false");
+
+  if (willShow) {
+    advancedSearchInput.focus();
+    advancedSearchInput.select();
+  }
 }
 
 let globalSearchTimer = null;
@@ -3122,12 +3933,22 @@ function clearAllFilters() {
   }
   state.filters = {};
   state.globalSearch = "";
+  state.advancedSearch = "";
+  state.advancedSearchAst = null;
+  state.advancedSearchError = "";
   state.timeWindow.start = "";
   state.timeWindow.end = "";
+  state.groupByColumns = [];
+  state.expandedGroups.clear();
   state.hiddenColumns.clear();
   globalSearchInput.value = "";
+  advancedSearchInput.value = "";
+  advancedSearchInput.removeAttribute("aria-invalid");
+  advancedSearchInput.title = "";
   timeWindowStartInput.value = "";
   timeWindowEndInput.value = "";
+  renderGroupByChips();
+  groupByZone.dataset.dropActive = "false";
   applyFilters();
   renderTable();
   setStatus("All filters cleared.", "ok");
