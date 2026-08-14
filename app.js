@@ -58,6 +58,7 @@ const themeMaterialDarkMenuItem = document.getElementById("themeMaterialDarkMenu
 const themeIosLightMenuItem = document.getElementById("themeIosLightMenuItem");
 const themeIosDarkMenuItem = document.getElementById("themeIosDarkMenuItem");
 const themeNeonPartyMenuItem = document.getElementById("themeNeonPartyMenuItem");
+const themeWindowsXpMenuItem = document.getElementById("themeWindowsXpMenuItem");
 const timeWindowMenuItem = document.getElementById("timeWindowMenuItem");
 const timeWindowColumnMenu = document.getElementById("timeWindowColumnMenu");
 const timeWindowEnabledMenuItem = document.getElementById("timeWindowEnabledMenuItem");
@@ -136,7 +137,7 @@ const state = {
   sort: { header: null, direction: null }, // null | "asc" | "desc"
   firstRowIsHeader: true,
   showRowNumbers: true,
-  theme: "light", // "light" | "dark"
+  theme: "material-light", // "light" | "dark"
   wordWrap: false,
   hideEmptyCols: false,
   virtualizedRendering: false,
@@ -236,7 +237,7 @@ const ROW_NUMBER_VISIBILITY_STORAGE_KEY = "timelineExploderShowRowNumbers";
 const CELL_OVERLAY_FONT_MIN = 10;
 const CELL_OVERLAY_FONT_MAX = 28;
 const FILE_TAB_LABEL_MAX = 28;
-const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "ios-light", "ios-dark", "neon-party"]);
+const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "ios-light", "ios-dark", "neon-party", "windows-xp"]);
 const ADVANCED_FIELD_DRAG_MIME = "application/x-timeline-exploder-header";
 const THEME_LABELS = {
   light: "Classic Light",
@@ -245,7 +246,8 @@ const THEME_LABELS = {
   "material-dark": "Material Dark",
   "ios-light": "iOS Light",
   "ios-dark": "iOS Dark",
-  "neon-party": "Neon"
+  "neon-party": "Neon",
+  "windows-xp": "Windows XP"
 };
 let sqlJsInitPromise = null;
 let cellOverlayFontSize = 12;
@@ -1200,6 +1202,11 @@ themeIosDarkMenuItem.addEventListener("click", () => {
 themeNeonPartyMenuItem.addEventListener("click", () => {
   closeAllMenus();
   setTheme("neon-party");
+});
+
+themeWindowsXpMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  setTheme("windows-xp");
 });
 
 hideEmptyColsMenuItem.addEventListener("click", () => {
@@ -2597,6 +2604,7 @@ function syncMenuCheckboxStates() {
   themeIosLightMenuItem.setAttribute("aria-checked", state.theme === "ios-light" ? "true" : "false");
   themeIosDarkMenuItem.setAttribute("aria-checked", state.theme === "ios-dark" ? "true" : "false");
   themeNeonPartyMenuItem.setAttribute("aria-checked", state.theme === "neon-party" ? "true" : "false");
+  themeWindowsXpMenuItem.setAttribute("aria-checked", state.theme === "windows-xp" ? "true" : "false");
   hideEmptyColsMenuItem.setAttribute("aria-checked", state.hideEmptyCols ? "true" : "false");
   virtualizedRenderMenuItem.setAttribute("aria-checked", state.virtualizedRendering ? "true" : "false");
 }

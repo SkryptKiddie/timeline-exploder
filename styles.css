@@ -2778,6 +2778,168 @@ body[data-theme="neon-party"] .col-drop-indicator {
   background: #ffe45e;
 }
 
+body[data-theme="windows-xp"] {
+  --win-bg: #3a6ea5;
+  --win-panel: #ece9d8;
+  --win-border: #aca899;
+  --win-border-dark: #003c7a;
+  --win-text: #000000;
+  --win-muted: #3f3f3f;
+  --win-select: #316ac5;
+  --status-ok: #075b19;
+  --status-warn: #9b0000;
+  --help-header-bg: linear-gradient(180deg, #0a246a 0%, #3a6ea5 100%);
+  --help-header-text: #ffffff;
+  background: #3a6ea5;
+  font-family: Tahoma, "Segoe UI", sans-serif;
+}
+
+body[data-theme="windows-xp"] .menu-bar-wrap,
+body[data-theme="windows-xp"] .controls {
+  background: linear-gradient(180deg, #ffffff 0%, #d6d2c4 52%, #c3bfb2 100%);
+  border-color: #7f9db9;
+  box-shadow: inset 0 1px 0 #ffffff;
+}
+
+body[data-theme="windows-xp"] .menu-bar {
+  border-top-color: #ffffff;
+}
+
+body[data-theme="windows-xp"] .menu-button,
+body[data-theme="windows-xp"] .tool-btn {
+  color: #000000;
+  border-radius: 2px;
+}
+
+body[data-theme="windows-xp"] .menu-button:hover,
+body[data-theme="windows-xp"] .menu-button[aria-expanded="true"],
+body[data-theme="windows-xp"] .menu-action:hover,
+body[data-theme="windows-xp"] .context-menu-item:hover {
+  background: #316ac5;
+  border-color: #0a246a;
+  color: #ffffff;
+}
+
+body[data-theme="windows-xp"] .menu-dropdown,
+body[data-theme="windows-xp"] .menu-submenu,
+body[data-theme="windows-xp"] .column-context-menu,
+body[data-theme="windows-xp"] .field-context-menu {
+  background: #ffffff;
+  border-color: #0a246a;
+  border-radius: 0;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+body[data-theme="windows-xp"] .tool-btn {
+  background: linear-gradient(180deg, #ffffff 0%, #ece9d8 45%, #d6d2c4 100%);
+  border: 1px solid #003c7a;
+  box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #7f7f7f;
+}
+
+body[data-theme="windows-xp"] .tool-btn:active {
+  background: #d6d2c4;
+  box-shadow: inset 1px 1px 0 #7f7f7f;
+}
+
+body[data-theme="windows-xp"] .advanced-search-input,
+body[data-theme="windows-xp"] .global-search-input,
+body[data-theme="windows-xp"] .find-input,
+body[data-theme="windows-xp"] .time-window-select,
+body[data-theme="windows-xp"] .time-window-input,
+body[data-theme="windows-xp"] .sqlite-table-select,
+body[data-theme="windows-xp"] .filter-input,
+body[data-theme="windows-xp"] .filter-operator {
+  background: #ffffff;
+  border-color: #7f9db9;
+  border-radius: 0;
+  color: #000000;
+}
+
+body[data-theme="windows-xp"] .file-drop-panel {
+  border-color: #316ac5;
+  border-radius: 4px;
+  background: #ece9d8;
+}
+
+body[data-theme="windows-xp"] .file-tabs,
+body[data-theme="windows-xp"] .meta-row {
+  background: linear-gradient(180deg, #d6e8fa 0%, #b8d4ef 100%);
+  border-color: #7f9db9;
+}
+
+body[data-theme="windows-xp"] .file-tab {
+  background: #d6d2c4;
+  border-color: #7f9db9;
+  border-radius: 2px 2px 0 0;
+}
+
+body[data-theme="windows-xp"] .file-tab.is-active {
+  background: #ffffff;
+}
+
+body[data-theme="windows-xp"] .table-zone,
+body[data-theme="windows-xp"] .data-table {
+  background: #ffffff;
+  border-color: #7f9db9;
+}
+
+body[data-theme="windows-xp"] .data-table th,
+body[data-theme="windows-xp"] .data-table th.selection-col {
+  background: linear-gradient(180deg, #f7fbff 0%, #c9dff4 100%);
+  border-color: #7f9db9;
+  color: #000000;
+}
+
+body[data-theme="windows-xp"] .data-table td {
+  background: #ffffff;
+  border-color: #d4d0c8;
+  color: #000000;
+}
+
+body[data-theme="windows-xp"] .data-table td.row-number-cell {
+  background: #ece9d8;
+  color: #3f3f3f;
+}
+
+body[data-theme="windows-xp"] .data-table th.pinned-col,
+body[data-theme="windows-xp"] .data-table td.pinned-cell {
+  background: #dbe8f8;
+}
+
+body[data-theme="windows-xp"] .data-table tr:hover td,
+body[data-theme="windows-xp"] .data-table tr:hover td.selection-cell {
+  background: #e5f1ff;
+}
+
+body[data-theme="windows-xp"] .group-by-zone {
+  border-color: #7f9db9;
+  border-radius: 2px;
+  background: #d6e8fa;
+}
+
+body[data-theme="windows-xp"] .group-chip {
+  border-color: #316ac5;
+  border-radius: 2px;
+  background: #dbe8f8;
+  color: #000000;
+}
+
+body[data-theme="windows-xp"] .cell-overlay-value,
+body[data-theme="windows-xp"] .row-details-list,
+body[data-theme="windows-xp"] .row-details-value,
+body[data-theme="windows-xp"] .column-stats-item,
+body[data-theme="windows-xp"] .column-stats-top-values {
+  background: #ffffff;
+  border-color: #7f9db9;
+  color: #000000;
+}
+
+body[data-theme="windows-xp"] .row-details-key {
+  background: #d6e8fa;
+  border-color: #7f9db9;
+  color: #000000;
+}
+
 /* Row colouring by value */
 .data-table tr.row-value-colored td:not(.find-match):not(.find-active-match) {
   background: var(--row-value-bg);
