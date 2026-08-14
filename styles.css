@@ -706,6 +706,7 @@ body {
   background: #e8e4d7;
   color: var(--win-text);
   padding: 0;
+  overflow: hidden;
 }
 
 .file-tab.is-active {
@@ -715,12 +716,15 @@ body {
 }
 
 .file-tab-label {
+  display: block;
+  width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .file-tab-select {
+  display: block;
   flex: 1;
   min-width: 0;
   border: 0;
@@ -730,6 +734,7 @@ body {
   text-align: left;
   padding: 4px 4px 4px 8px;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .file-tab-close {
@@ -1544,6 +1549,10 @@ body[data-theme="dark"] .file-tab.is-active {
   background: #141d2a;
 }
 
+body[data-theme="dark"] .file-tab-close {
+  opacity: 0.86;
+}
+
 body[data-theme="dark"] .meta-row {
   background: #1b2535;
 }
@@ -1942,6 +1951,25 @@ body[data-theme="material-dark"] .table-zone {
   border-top-color: #354457;
 }
 
+body[data-theme="material-dark"] .file-tabs {
+  background: linear-gradient(#2a3444, #1f2937);
+  border-bottom-color: #3b4d63;
+}
+
+body[data-theme="material-dark"] .file-tab {
+  background: #223043;
+  border-color: #4c637c;
+  color: #e6edf5;
+}
+
+body[data-theme="material-dark"] .file-tab.is-active {
+  background: #151c27;
+}
+
+body[data-theme="material-dark"] .file-tab-close {
+  opacity: 0.86;
+}
+
 body[data-theme="material-dark"] .meta-row {
   background: #212b39;
 }
@@ -2264,6 +2292,25 @@ body[data-theme="ios-dark"] .table-zone {
   border-top-color: #3a3e4c;
 }
 
+body[data-theme="ios-dark"] .file-tabs {
+  background: linear-gradient(#2d3240, #252a36);
+  border-bottom-color: #434a5d;
+}
+
+body[data-theme="ios-dark"] .file-tab {
+  background: #2a3040;
+  border-color: #525b70;
+  color: #e9ecf6;
+}
+
+body[data-theme="ios-dark"] .file-tab.is-active {
+  background: #14161d;
+}
+
+body[data-theme="ios-dark"] .file-tab-close {
+  opacity: 0.86;
+}
+
 body[data-theme="ios-dark"] .meta-row {
   background: #20232d;
 }
@@ -2520,6 +2567,25 @@ body[data-theme="neon-party"] .loading-progress-bar {
 body[data-theme="neon-party"] .table-zone {
   background: #120a26;
   border-top-color: #ff63d0;
+}
+
+body[data-theme="neon-party"] .file-tabs {
+  background: linear-gradient(90deg, #2e1658, #1f0f3d);
+  border-bottom-color: #6b2bcb;
+}
+
+body[data-theme="neon-party"] .file-tab {
+  background: #2a1450;
+  border-color: #8a42ef;
+  color: #f6e8ff;
+}
+
+body[data-theme="neon-party"] .file-tab.is-active {
+  background: #120a26;
+}
+
+body[data-theme="neon-party"] .file-tab-close {
+  opacity: 0.9;
 }
 
 body[data-theme="neon-party"] .meta-row {

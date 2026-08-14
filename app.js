@@ -235,7 +235,7 @@ const THEME_STORAGE_KEY = "timelineExploderTheme";
 const ROW_NUMBER_VISIBILITY_STORAGE_KEY = "timelineExploderShowRowNumbers";
 const CELL_OVERLAY_FONT_MIN = 10;
 const CELL_OVERLAY_FONT_MAX = 28;
-const FILE_TAB_LABEL_MAX = 42;
+const FILE_TAB_LABEL_MAX = 28;
 const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "ios-light", "ios-dark", "neon-party"]);
 const ADVANCED_FIELD_DRAG_MIME = "application/x-timeline-exploder-header";
 const THEME_LABELS = {
@@ -1070,6 +1070,10 @@ advancedSearchWrap.addEventListener("dragenter", onAdvancedSearchDragEnter);
 advancedSearchWrap.addEventListener("dragover", onAdvancedSearchDragOver);
 advancedSearchWrap.addEventListener("dragleave", onAdvancedSearchDragLeave);
 advancedSearchWrap.addEventListener("drop", onAdvancedSearchDrop);
+groupByZone.addEventListener("dragenter", onGroupByZoneDragEnter);
+groupByZone.addEventListener("dragover", onGroupByZoneDragOver);
+groupByZone.addEventListener("dragleave", onGroupByZoneDragLeave);
+groupByZone.addEventListener("drop", onGroupByZoneDrop);
 sqliteTableSelect.addEventListener("change", onSqliteTableChange);
 helpCloseBtn.addEventListener("click", closeHelpOverlay);
 helpOverlay.addEventListener("click", onHelpOverlayClick);
@@ -1968,7 +1972,6 @@ function buildRowLogText(row, rowNumber) {
   const usedKeys = new Set();
 
   parts.push(`row_number=${rowNumber}`);
-  parts.push(`source_index=${Number(row.__sourceIndex)}`);
   if (state.fileName) {
     parts.push(`source_file=${toLogValue(state.fileName)}`);
   }
@@ -3566,7 +3569,7 @@ function appendTableHeader(thead, visibleHeaders) {
     dragHandle.className = "col-drag-handle";
     dragHandle.dataset.colIndex = String(state.headers.indexOf(header));
     dragHandle.textContent = "\u22EE";
-    dragHandle.addEventListener("mousedown", (e) => e.stopPropagation());
+    dragHandle.addEventListener("mousedown", onColDragStart);
 
     const sortGlyph = document.createElement("button");
     sortGlyph.className = "col-sort-btn";
@@ -4284,6 +4287,31 @@ function getRowColorStyleByValue(rawValue) {
   }
 
   const hue = hashTextToHue(value);
+  const isDarkTheme =
+    state.theme === "dark" ||
+    state.theme === "material-dark" ||
+    state.theme === "ios-dark" ||
+    state.theme === "neon-party";
+
+  const isLightTheme =
+    state.theme === "light" ||
+    state.theme === "material-light" ||
+    state.theme === "ios-light";
+
+  if (isDarkTheme) {
+    return {
+      bg: `hsla(${hue}, 34%, 33%, 0.52)`,
+      hover: `hsla(${hue}, 36%, 38%, 0.62)`
+    };
+  }
+
+  if (isLightTheme) {
+    return {
+      bg: `hsla(${hue}, 88%, 84%, 0.96)`,
+      hover: `hsla(${hue}, 92%, 78%, 0.98)`
+    };
+  }
+
   return {
     bg: `hsla(${hue}, 80%, 92%, 0.95)`,
     hover: `hsla(${hue}, 82%, 88%, 0.98)`
@@ -4449,6 +4477,7 @@ function onGlobalSearchInput(event) {
 }
 
 let advancedSearchDragDepth = 0;
+let groupByZoneDragDepth = 0;
 
 function hasAdvancedFieldDragType(event) {
   const types = event.dataTransfer?.types;
@@ -4568,6 +4597,63 @@ function onAdvancedSearchDrop(event) {
   advancedSearchDragDepth = 0;
   setAdvancedSearchDropActive(false);
   insertAdvancedFieldIntoQuery(header);
+}
+
+function onGroupByZoneDragEnter(event) {
+  if (!hasAdvancedFieldDragType(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  groupByZoneDragDepth += 1;
+  groupByZone.dataset.dropActive = "true";
+}
+
+function onGroupByZoneDragOver(event) {
+  if (!hasAdvancedFieldDragType(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "copy";
+  }
+  groupByZone.dataset.dropActive = "true";
+}
+
+function onGroupByZoneDragLeave(event) {
+  if (!hasAdvancedFieldDragType(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  groupByZoneDragDepth = Math.max(0, groupByZoneDragDepth - 1);
+  if (groupByZoneDragDepth === 0) {
+    groupByZone.dataset.dropActive = "false";
+  }
+}
+
+function onGroupByZoneDrop(event) {
+  const header = getDraggedAdvancedField(event);
+  if (!header) {
+    return;
+  }
+
+  event.preventDefault();
+  groupByZoneDragDepth = 0;
+  groupByZone.dataset.dropActive = "false";
+
+  if (!state.headers.includes(header)) {
+    return;
+  }
+
+  if (!state.groupByColumns.includes(header)) {
+    state.groupByColumns.push(header);
+    state.expandedGroups.clear();
+    renderGroupByChips();
+    renderTable();
+    setStatus(`Grouped by ${header}.`, "ok");
+  }
 }
 
 function onAdvancedSearchInputKeyDown(event) {
