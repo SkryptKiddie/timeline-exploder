@@ -45,11 +45,14 @@
                 <button id="wordWrapMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
                   Word Wrap Fields
                 </button>
+                <button id="lineNumberVisibleMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="true">
+                  Show Line Numbers
+                </button>
                 <button id="hideEmptyColsMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
                   Hide Empty Columns
                 </button>
                 <button id="virtualizedRenderMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
-                  Virtualized Rendering
+                  Virtualised Rendering
                 </button>
                 <button id="clearFiltersMenuItem" class="menu-action" type="button" role="menuitem">Clear Filters</button>
                 <div class="menu-submenu-item" role="none">
@@ -88,6 +91,12 @@
                     <button id="themeMaterialDarkMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
                       Material Dark
                     </button>
+                    <button id="themeIosLightMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
+                      iOS Light
+                    </button>
+                    <button id="themeIosDarkMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
+                      iOS Dark
+                    </button>
                     <button id="themeNeonPartyMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
                       Neon
                     </button>
@@ -103,7 +112,7 @@
           </nav>
         </header>
 
-        <input id="fileInput" class="hidden-file-input" type="file" accept=".csv,.json,.db,.sqlite,.sqlite3,application/json,text/csv,application/vnd.sqlite3" />
+        <input id="fileInput" class="hidden-file-input" type="file" multiple accept=".csv,.json,.db,.sqlite,.sqlite3,application/json,text/csv,application/vnd.sqlite3" />
 
         <section class="controls">
           <div class="toolbar">
@@ -194,7 +203,30 @@
         </div>
       </div>
 
+      <div id="rowDetailsOverlay" class="help-overlay row-details-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="rowDetailsTitle">
+        <div class="help-panel row-details-panel" role="document">
+          <div id="rowDetailsResizeHandle" class="row-details-resize-handle" aria-hidden="true"></div>
+          <div class="help-panel-header">
+            <h2 id="rowDetailsTitle" class="help-title">Row Details</h2>
+            <button id="rowDetailsCloseBtn" class="help-close-btn" type="button" aria-label="Close row details">&times;</button>
+          </div>
+          <div class="help-panel-body row-details-body">
+            <p id="rowDetailsMeta" class="row-details-meta"></p>
+            <pre id="rowDetailsLog" class="row-details-log"></pre>
+            <div class="cell-overlay-controls" aria-label="Row viewer display settings">
+              <label class="cell-font-label" for="rowFontSizeInput">Font size</label>
+              <button id="rowFontDecreaseBtn" class="tool-btn cell-font-btn" type="button" aria-label="Decrease row log font size">A-</button>
+              <input id="rowFontSizeInput" class="cell-font-slider" type="range" min="10" max="28" step="1" value="12" />
+              <button id="rowFontIncreaseBtn" class="tool-btn cell-font-btn" type="button" aria-label="Increase row log font size">A+</button>
+              <span id="rowFontSizeValue" class="cell-font-size-value" aria-live="polite">12px</span>
+              <button id="rowDetailsCopyBtn" class="tool-btn row-details-copy-btn" type="button" aria-label="Copy row log">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <section class="table-zone hidden" id="tableZone">
+        <div id="fileTabs" class="file-tabs hidden" role="tablist" aria-label="Open files"></div>
         <div class="meta-row">
           <p>Rows: <strong id="rowCount">0</strong></p>
           <p>Columns: <strong id="columnCount">0</strong></p>
@@ -237,9 +269,12 @@
           <button id="contextMenuPin" class="context-menu-item" type="button" role="menuitem">Pin Column</button>
           <button id="contextMenuUnpin" class="context-menu-item" type="button" role="menuitem">Unpin Column</button>
           <button id="contextMenuStats" class="context-menu-item" type="button" role="menuitem">Column Stats</button>
+          <button id="contextMenuColorRows" class="context-menu-item" type="button" role="menuitem">Colour Rows By This Column</button>
+          <button id="contextMenuClearRowColor" class="context-menu-item hidden" type="button" role="menuitem">Clear Row Colouring</button>
           <button id="contextMenuHide" class="context-menu-item" type="button" role="menuitem">Hide Column</button>
         </div>
         <div id="fieldContextMenu" class="column-context-menu field-context-menu hidden" role="menu">
+          <button id="fieldMenuViewRow" class="context-menu-item" type="button" role="menuitem">View Row Details</button>
           <button id="fieldMenuCopyValue" class="context-menu-item" type="button" role="menuitem">Copy Value</button>
           <button id="fieldMenuCopyCell" class="context-menu-item" type="button" role="menuitem">Copy Cell</button>
           <button id="fieldMenuFilterEquals" class="context-menu-item" type="button" role="menuitem">Filter: Equals This Value</button>

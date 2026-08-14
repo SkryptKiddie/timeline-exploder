@@ -4,6 +4,7 @@ const fileDropOverlay = document.getElementById("fileDropOverlay");
 const dataTable = document.getElementById("dataTable");
 const tableScroll = document.querySelector(".table-scroll");
 const tableZone = document.getElementById("tableZone");
+const fileTabs = document.getElementById("fileTabs");
 const rowCount = document.getElementById("rowCount");
 const columnCount = document.getElementById("columnCount");
 const globalSearchInput = document.getElementById("globalSearchInput");
@@ -48,11 +49,14 @@ const openFileMenuItem = document.getElementById("openFileMenuItem");
 const closeFileMenuItem = document.getElementById("closeFileMenuItem");
 const firstRowHeaderMenuItem = document.getElementById("firstRowHeaderMenuItem");
 const wordWrapMenuItem = document.getElementById("wordWrapMenuItem");
+const lineNumberVisibleMenuItem = document.getElementById("lineNumberVisibleMenuItem");
 const themeMenuItem = document.getElementById("themeMenuItem");
 const themeLightMenuItem = document.getElementById("themeLightMenuItem");
 const themeDarkMenuItem = document.getElementById("themeDarkMenuItem");
 const themeMaterialLightMenuItem = document.getElementById("themeMaterialLightMenuItem");
 const themeMaterialDarkMenuItem = document.getElementById("themeMaterialDarkMenuItem");
+const themeIosLightMenuItem = document.getElementById("themeIosLightMenuItem");
+const themeIosDarkMenuItem = document.getElementById("themeIosDarkMenuItem");
 const themeNeonPartyMenuItem = document.getElementById("themeNeonPartyMenuItem");
 const timeWindowMenuItem = document.getElementById("timeWindowMenuItem");
 const timeWindowColumnMenu = document.getElementById("timeWindowColumnMenu");
@@ -77,13 +81,28 @@ const columnContextMenu = document.getElementById("columnContextMenu");
 const contextMenuPin = document.getElementById("contextMenuPin");
 const contextMenuUnpin = document.getElementById("contextMenuUnpin");
 const contextMenuStats = document.getElementById("contextMenuStats");
+const contextMenuColorRows = document.getElementById("contextMenuColorRows");
+const contextMenuClearRowColor = document.getElementById("contextMenuClearRowColor");
 const contextMenuHide = document.getElementById("contextMenuHide");
 const fieldContextMenu = document.getElementById("fieldContextMenu");
+const fieldMenuViewRow = document.getElementById("fieldMenuViewRow");
 const fieldMenuCopyValue = document.getElementById("fieldMenuCopyValue");
 const fieldMenuCopyCell = document.getElementById("fieldMenuCopyCell");
 const fieldMenuFilterEquals = document.getElementById("fieldMenuFilterEquals");
 const fieldMenuFilterNotEquals = document.getElementById("fieldMenuFilterNotEquals");
 const fieldMenuVirusTotal = document.getElementById("fieldMenuVirusTotal");
+const rowDetailsOverlay = document.getElementById("rowDetailsOverlay");
+const rowDetailsCloseBtn = document.getElementById("rowDetailsCloseBtn");
+const rowDetailsTitle = document.getElementById("rowDetailsTitle");
+const rowDetailsMeta = document.getElementById("rowDetailsMeta");
+const rowDetailsLog = document.getElementById("rowDetailsLog");
+const rowDetailsPanel = document.querySelector(".row-details-panel");
+const rowDetailsResizeHandle = document.getElementById("rowDetailsResizeHandle");
+const rowFontDecreaseBtn = document.getElementById("rowFontDecreaseBtn");
+const rowFontIncreaseBtn = document.getElementById("rowFontIncreaseBtn");
+const rowFontSizeInput = document.getElementById("rowFontSizeInput");
+const rowFontSizeValue = document.getElementById("rowFontSizeValue");
+const rowDetailsCopyBtn = document.getElementById("rowDetailsCopyBtn");
 const columnStatsOverlay = document.getElementById("columnStatsOverlay");
 const columnStatsCloseBtn = document.getElementById("columnStatsCloseBtn");
 const columnStatsTitle = document.getElementById("columnStatsTitle");
@@ -97,6 +116,10 @@ const columnStatsAvgLength = document.getElementById("columnStatsAvgLength");
 const columnStatsMinLength = document.getElementById("columnStatsMinLength");
 const columnStatsMaxLength = document.getElementById("columnStatsMaxLength");
 const columnStatsTopValues = document.getElementById("columnStatsTopValues");
+
+if (tableZone && rowDetailsOverlay && rowDetailsOverlay.parentElement !== tableZone) {
+  tableZone.appendChild(rowDetailsOverlay);
+}
 
 const state = {
   headers: [],
@@ -112,6 +135,7 @@ const state = {
   rowNumberWidth: 72,
   sort: { header: null, direction: null }, // null | "asc" | "desc"
   firstRowIsHeader: true,
+  showRowNumbers: true,
   theme: "light", // "light" | "dark"
   wordWrap: false,
   hideEmptyCols: false,
@@ -137,7 +161,8 @@ const state = {
   groupByColumns: [], // Ordered list of columns used for drill-down grouping
   expandedGroups: new Set(), // Track which group values are expanded
   pinnedColumns: [], // Ordered list of pinned column headers
-  hiddenColumns: new Set() // Set of hidden column headers
+  hiddenColumns: new Set(), // Set of hidden column headers
+  rowColorByColumn: ""
 };
 
 const resizeState = {
@@ -191,23 +216,40 @@ const fileDropState = {
   dragDepth: 0
 };
 
+const rowDetailsResizeState = {
+  active: false,
+  startX: 0,
+  startWidth: 0
+};
+
+const tabsState = {
+  tabs: [],
+  activeTabId: null,
+  nextTabId: 1
+};
+
 const RENDER_BATCH_SIZE = 350;
 const RENDER_PROGRESS_MIN_ROWS = 1200;
 const AUTO_VIRTUALIZE_THRESHOLD_BYTES = 1024 * 1024;
 const THEME_STORAGE_KEY = "timelineExploderTheme";
+const ROW_NUMBER_VISIBILITY_STORAGE_KEY = "timelineExploderShowRowNumbers";
 const CELL_OVERLAY_FONT_MIN = 10;
 const CELL_OVERLAY_FONT_MAX = 28;
-const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "neon-party"]);
+const FILE_TAB_LABEL_MAX = 42;
+const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "ios-light", "ios-dark", "neon-party"]);
 const ADVANCED_FIELD_DRAG_MIME = "application/x-timeline-exploder-header";
 const THEME_LABELS = {
   light: "Classic Light",
   dark: "Classic Dark",
   "material-light": "Material Light",
   "material-dark": "Material Dark",
+  "ios-light": "iOS Light",
+  "ios-dark": "iOS Dark",
   "neon-party": "Neon"
 };
 let sqlJsInitPromise = null;
 let cellOverlayFontSize = 12;
+let rowDetailsFontSize = 12;
 
 const renderState = {
   renderPassId: 0,
@@ -733,6 +775,283 @@ function compileAdvancedQuery() {
   }
 }
 
+function truncateFileTabLabel(label) {
+  const safe = String(label || "Untitled").trim() || "Untitled";
+  if (safe.length <= FILE_TAB_LABEL_MAX) {
+    return safe;
+  }
+  return `${safe.slice(0, FILE_TAB_LABEL_MAX - 1)}…`;
+}
+
+function cloneRows(rows) {
+  return rows.map((row) => ({ ...row }));
+}
+
+function cloneFilters(filters) {
+  return Object.fromEntries(
+    Object.entries(filters || {}).map(([header, value]) => [header, value ? { ...value } : value])
+  );
+}
+
+function cloneFileBuffer(fileBuffer) {
+  if (!fileBuffer || typeof fileBuffer.slice !== "function") {
+    return null;
+  }
+  return fileBuffer.slice(0);
+}
+
+function createTabSnapshotFromState() {
+  return {
+    headers: [...state.headers],
+    rows: cloneRows(state.rows),
+    filters: cloneFilters(state.filters),
+    globalSearch: state.globalSearch,
+    advancedSearch: state.advancedSearch,
+    advancedSearchAst: state.advancedSearchAst ? structuredClone(state.advancedSearchAst) : null,
+    advancedSearchError: state.advancedSearchError,
+    selectedRowIds: Array.from(state.selectedRowIds),
+    columnWidths: { ...state.columnWidths },
+    rowNumberWidth: state.rowNumberWidth,
+    sort: { ...state.sort },
+    firstRowIsHeader: state.firstRowIsHeader,
+    showRowNumbers: state.showRowNumbers,
+    theme: state.theme,
+    wordWrap: state.wordWrap,
+    hideEmptyCols: state.hideEmptyCols,
+    virtualizedRendering: state.virtualizedRendering,
+    findQuery: state.findQuery,
+    fileText: state.fileText,
+    fileBuffer: cloneFileBuffer(state.fileBuffer),
+    fileName: state.fileName,
+    fileType: state.fileType,
+    sqliteTables: [...state.sqliteTables],
+    sqliteTableName: state.sqliteTableName,
+    datetimeHeaders: [...state.datetimeHeaders],
+    timeWindow: { ...state.timeWindow },
+    groupByColumns: [...state.groupByColumns],
+    expandedGroups: Array.from(state.expandedGroups),
+    pinnedColumns: [...state.pinnedColumns],
+    hiddenColumns: Array.from(state.hiddenColumns),
+    rowColorByColumn: state.rowColorByColumn,
+    cellOverlayFontSize,
+    rowDetailsFontSize
+  };
+}
+
+function applyTabSnapshot(snapshot) {
+  if (!snapshot) {
+    return;
+  }
+
+  state.headers = [...(snapshot.headers || [])];
+  state.rows = cloneRows(snapshot.rows || []);
+  state.filters = cloneFilters(snapshot.filters || {});
+  state.globalSearch = snapshot.globalSearch || "";
+  state.advancedSearch = snapshot.advancedSearch || "";
+  state.advancedSearchAst = snapshot.advancedSearchAst ? structuredClone(snapshot.advancedSearchAst) : null;
+  state.advancedSearchError = snapshot.advancedSearchError || "";
+  state.selectedRowIds = new Set(snapshot.selectedRowIds || []);
+  state.columnWidths = { ...(snapshot.columnWidths || {}) };
+  state.rowNumberWidth = Number(snapshot.rowNumberWidth) || 72;
+  state.sort = snapshot.sort ? { ...snapshot.sort } : { header: null, direction: null };
+  state.firstRowIsHeader = snapshot.firstRowIsHeader !== false;
+  state.showRowNumbers = snapshot.showRowNumbers !== false;
+  state.theme = SUPPORTED_THEMES.has(snapshot.theme) ? snapshot.theme : state.theme;
+  state.wordWrap = Boolean(snapshot.wordWrap);
+  state.hideEmptyCols = Boolean(snapshot.hideEmptyCols);
+  state.virtualizedRendering = Boolean(snapshot.virtualizedRendering);
+  state.findQuery = snapshot.findQuery || "";
+  state.fileText = snapshot.fileText || "";
+  state.fileBuffer = cloneFileBuffer(snapshot.fileBuffer);
+  state.fileName = snapshot.fileName || "";
+  state.fileType = snapshot.fileType || "";
+  state.sqliteTables = [...(snapshot.sqliteTables || [])];
+  state.sqliteTableName = snapshot.sqliteTableName || "";
+  state.datetimeHeaders = [...(snapshot.datetimeHeaders || [])];
+  state.timeWindow = snapshot.timeWindow ? { ...snapshot.timeWindow } : { enabled: false, column: "", start: "", end: "" };
+  state.groupByColumns = [...(snapshot.groupByColumns || [])];
+  state.expandedGroups = new Set(snapshot.expandedGroups || []);
+  state.pinnedColumns = [...(snapshot.pinnedColumns || [])];
+  state.hiddenColumns = new Set(snapshot.hiddenColumns || []);
+  state.rowColorByColumn = snapshot.rowColorByColumn || "";
+  state.filteredRows = [];
+  state.visibleRowIds = [];
+  state.findMatches = [];
+  state.findMatchLookup = new Set();
+  state.activeFindMatchIndex = -1;
+
+  globalSearchInput.value = state.globalSearch;
+  advancedSearchInput.value = state.advancedSearch;
+  findInput.value = state.findQuery;
+  advancedSearchInput.title = state.advancedSearchError || "";
+  if (state.advancedSearchError) {
+    advancedSearchInput.setAttribute("aria-invalid", "true");
+  } else {
+    advancedSearchInput.removeAttribute("aria-invalid");
+  }
+
+  updateSqliteTablePicker();
+  updateTimeWindowControls();
+  renderGroupByChips();
+  syncMenuCheckboxStates();
+  applyTheme();
+  applyWordWrapClass();
+  updateSelectedActionsVisibility();
+  applyCellOverlayFontSize(snapshot.cellOverlayFontSize || 12);
+  applyRowDetailsFontSize(snapshot.rowDetailsFontSize || 12);
+
+  if (!state.headers.length) {
+    tableZone.classList.add("hidden");
+    dataTable.innerHTML = "";
+    rowCount.textContent = "0";
+    columnCount.textContent = "0";
+    return;
+  }
+
+  tableZone.classList.remove("hidden");
+  applyFilters();
+  renderTable();
+}
+
+function getActiveTabRecord() {
+  if (tabsState.activeTabId === null) {
+    return null;
+  }
+  return tabsState.tabs.find((tab) => tab.id === tabsState.activeTabId) || null;
+}
+
+function saveActiveTabSnapshot() {
+  const activeTab = getActiveTabRecord();
+  if (!activeTab) {
+    return;
+  }
+  activeTab.title = state.fileName || activeTab.title;
+  activeTab.snapshot = createTabSnapshotFromState();
+}
+
+function renderFileTabs() {
+  if (!fileTabs) {
+    return;
+  }
+
+  fileTabs.innerHTML = "";
+  fileTabs.classList.toggle("hidden", tabsState.tabs.length === 0);
+
+  tabsState.tabs.forEach((tab) => {
+    const tabWrap = document.createElement("div");
+    tabWrap.className = `file-tab${tab.id === tabsState.activeTabId ? " is-active" : ""}`;
+    tabWrap.setAttribute("role", "presentation");
+    tabWrap.title = tab.title;
+
+    const tabBtn = document.createElement("button");
+    tabBtn.type = "button";
+    tabBtn.className = "file-tab-select";
+    tabBtn.setAttribute("role", "tab");
+    tabBtn.setAttribute("aria-selected", tab.id === tabsState.activeTabId ? "true" : "false");
+    tabBtn.dataset.tabId = String(tab.id);
+
+    const label = document.createElement("span");
+    label.className = "file-tab-label";
+    label.textContent = truncateFileTabLabel(tab.title);
+    tabBtn.appendChild(label);
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "file-tab-close";
+    closeBtn.setAttribute("aria-label", `Close ${tab.title}`);
+    closeBtn.dataset.tabClose = String(tab.id);
+    closeBtn.textContent = "×";
+    tabWrap.appendChild(tabBtn);
+    tabWrap.appendChild(closeBtn);
+    fileTabs.appendChild(tabWrap);
+  });
+}
+
+function activateTab(tabId, options = {}) {
+  const { skipSave = false, suppressStatus = false } = options;
+  const nextTab = tabsState.tabs.find((tab) => tab.id === tabId);
+  if (!nextTab || (tabsState.activeTabId === tabId && !skipSave)) {
+    return;
+  }
+
+  if (!skipSave) {
+    saveActiveTabSnapshot();
+  }
+
+  tabsState.activeTabId = tabId;
+  closeRowDetailsOverlay();
+  closeCellOverlay();
+  closeColumnStatsOverlay();
+  hideColumnContextMenu();
+  hideFieldContextMenu();
+  closeAllMenus();
+  applyTabSnapshot(nextTab.snapshot);
+  renderFileTabs();
+
+  if (!suppressStatus) {
+    setStatus(`Switched to ${nextTab.title}.`, "ok");
+  }
+}
+
+function closeTab(tabId, options = {}) {
+  const { suppressStatus = false } = options;
+  const index = tabsState.tabs.findIndex((tab) => tab.id === tabId);
+  if (index < 0) {
+    return;
+  }
+
+  const wasActive = tabsState.activeTabId === tabId;
+  const closingTitle = tabsState.tabs[index].title;
+  tabsState.tabs.splice(index, 1);
+
+  if (!tabsState.tabs.length) {
+    tabsState.activeTabId = null;
+    resetState();
+    tableZone.classList.add("hidden");
+    dataTable.innerHTML = "";
+    rowCount.textContent = "0";
+    columnCount.textContent = "0";
+    renderFileTabs();
+    if (!suppressStatus) {
+      setStatus("File closed.", "ok");
+    }
+    return;
+  }
+
+  if (wasActive) {
+    const fallback = tabsState.tabs[Math.max(0, index - 1)] || tabsState.tabs[0];
+    tabsState.activeTabId = fallback.id;
+    applyTabSnapshot(fallback.snapshot);
+  }
+
+  renderFileTabs();
+  if (!suppressStatus) {
+    setStatus(`Closed ${closingTitle}.`, "ok");
+  }
+}
+
+function onFileTabsClick(event) {
+  const closeBtn = event.target.closest("button[data-tab-close]");
+  if (closeBtn) {
+    event.stopPropagation();
+    const tabId = Number(closeBtn.dataset.tabClose);
+    if (!Number.isNaN(tabId)) {
+      closeTab(tabId);
+    }
+    return;
+  }
+
+  const tabBtn = event.target.closest("button[data-tab-id]");
+  if (!tabBtn) {
+    return;
+  }
+
+  const tabId = Number(tabBtn.dataset.tabId);
+  if (!Number.isNaN(tabId)) {
+    activateTab(tabId);
+  }
+}
+
 fileInput.addEventListener("change", onFileSelected);
 openFileBtn.addEventListener("click", openFilePicker);
 copySelectedBtn.addEventListener("click", copySelectedRows);
@@ -756,6 +1075,8 @@ helpCloseBtn.addEventListener("click", closeHelpOverlay);
 helpOverlay.addEventListener("click", onHelpOverlayClick);
 cellOverlayCloseBtn.addEventListener("click", closeCellOverlay);
 cellOverlay.addEventListener("click", onCellOverlayClick);
+rowDetailsCloseBtn.addEventListener("click", closeRowDetailsOverlay);
+rowDetailsOverlay.addEventListener("click", onRowDetailsOverlayClick);
 columnStatsCloseBtn.addEventListener("click", closeColumnStatsOverlay);
 columnStatsOverlay.addEventListener("click", onColumnStatsOverlayClick);
 dataTable.addEventListener("dblclick", onDataTableDoubleClick);
@@ -763,6 +1084,14 @@ dataTable.addEventListener("contextmenu", onDataTableContextMenu);
 cellFontSizeInput.addEventListener("input", onCellOverlayFontSizeInput);
 cellFontDecreaseBtn.addEventListener("click", () => adjustCellOverlayFontSize(-1));
 cellFontIncreaseBtn.addEventListener("click", () => adjustCellOverlayFontSize(1));
+rowFontSizeInput.addEventListener("input", onRowDetailsFontSizeInput);
+rowFontDecreaseBtn.addEventListener("click", () => adjustRowDetailsFontSize(-1));
+rowFontIncreaseBtn.addEventListener("click", () => adjustRowDetailsFontSize(1));
+rowDetailsCopyBtn.addEventListener("click", copyRowDetailsLog);
+rowDetailsResizeHandle.addEventListener("mousedown", onRowDetailsResizeStart);
+if (fileTabs) {
+  fileTabs.addEventListener("click", onFileTabsClick);
+}
 
 openFileMenuItem.addEventListener("click", () => {
   closeAllMenus();
@@ -794,6 +1123,11 @@ wordWrapMenuItem.addEventListener("click", () => {
   toggleWordWrap();
 });
 
+lineNumberVisibleMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  toggleRowNumberVisibility();
+});
+
 themeMenuItem.addEventListener("click", (event) => {
   event.stopPropagation();
 });
@@ -804,6 +1138,10 @@ timeWindowMenuItem.addEventListener("click", (event) => {
 
 timeWindowEnabledMenuItem.addEventListener("click", onTimeWindowEnabledMenuItemClick);
 timeWindowFieldMenu.addEventListener("click", onTimeWindowFieldMenuClick);
+
+fieldMenuViewRow.addEventListener("click", () => {
+  openRowDetailsFromFieldContext();
+});
 
 fieldMenuCopyValue.addEventListener("click", () => {
   copyFieldContextValue();
@@ -843,6 +1181,16 @@ themeMaterialLightMenuItem.addEventListener("click", () => {
 themeMaterialDarkMenuItem.addEventListener("click", () => {
   closeAllMenus();
   setTheme("material-dark");
+});
+
+themeIosLightMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  setTheme("ios-light");
+});
+
+themeIosDarkMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  setTheme("ios-dark");
 });
 
 themeNeonPartyMenuItem.addEventListener("click", () => {
@@ -896,6 +1244,20 @@ contextMenuStats.addEventListener("click", () => {
   openColumnStatsOverlay(header);
 });
 
+contextMenuColorRows.addEventListener("click", () => {
+  const header = columnContextState.header;
+  hideColumnContextMenu();
+  if (!header) {
+    return;
+  }
+  setRowColorByColumn(header);
+});
+
+contextMenuClearRowColor.addEventListener("click", () => {
+  hideColumnContextMenu();
+  clearRowColorByColumn();
+});
+
 contextMenuHide.addEventListener("click", () => {
   if (columnContextState.header) {
     hideColumn(columnContextState.header);
@@ -913,10 +1275,13 @@ document.addEventListener("mousemove", onColumnResizeMove);
 document.addEventListener("mouseup", onColumnResizeStop);
 document.addEventListener("mousemove", onGroupDragMove);
 document.addEventListener("mouseup", onGroupDragEnd);
+document.addEventListener("mousemove", onRowDetailsResizeMove);
+document.addEventListener("mouseup", onRowDetailsResizeStop);
 groupByList.addEventListener("dragover", onGroupListDragOver);
 groupByList.addEventListener("drop", onGroupListDrop);
 
 loadThemePreference();
+loadRowNumberVisibilityPreference();
 syncMenuCheckboxStates();
 applyTheme();
 applyWordWrapClass();
@@ -924,20 +1289,48 @@ updateSelectedActionsVisibility();
 updateSqliteTablePicker();
 updateTimeWindowControls();
 applyCellOverlayFontSize(cellOverlayFontSize);
+applyRowDetailsFontSize(rowDetailsFontSize);
+renderFileTabs();
 
 async function onFileSelected(event) {
-  const [file] = event.target.files;
-  if (!file) {
+  const files = Array.from(event.target.files || []);
+  if (!files.length) {
     return;
   }
 
-  await loadFile(file);
+  await loadFiles(files);
+  fileInput.value = "";
+}
+
+async function loadFiles(files) {
+  const list = Array.from(files || []).filter(Boolean);
+  if (!list.length) {
+    return;
+  }
+
+  for (const file of list) {
+    await loadFile(file);
+  }
 }
 
 async function loadFile(file) {
   if (!file) {
     return;
   }
+
+  const previousTabId = tabsState.activeTabId;
+  saveActiveTabSnapshot();
+
+  const newTab = {
+    id: tabsState.nextTabId++,
+    title: file.name,
+    snapshot: null
+  };
+  tabsState.tabs.push(newTab);
+  tabsState.activeTabId = newTab.id;
+  renderFileTabs();
+
+  resetState();
 
   // Default virtualization behavior is based on incoming file size.
   state.virtualizedRendering = file.size >= AUTO_VIRTUALIZE_THRESHOLD_BYTES;
@@ -982,14 +1375,34 @@ async function loadFile(file) {
     showLoadingProgress(100, "Done");
 
     const sqliteTableLabel = state.sqliteTableName ? ` (table ${state.sqliteTableName})` : "";
+    newTab.snapshot = createTabSnapshotFromState();
+    renderFileTabs();
     setStatus(`Loaded ${state.rows.length} row${state.rows.length === 1 ? "" : "s"} from ${file.name}${sqliteTableLabel}.`, "ok");
     window.setTimeout(hideLoadingProgress, 280);
   } catch (error) {
     console.error(error);
     hideLoadingProgress();
+    tabsState.tabs = tabsState.tabs.filter((tab) => tab.id !== newTab.id);
+
+    if (previousTabId !== null && tabsState.tabs.some((tab) => tab.id === previousTabId)) {
+      tabsState.activeTabId = previousTabId;
+      activateTab(previousTabId, { skipSave: true, suppressStatus: true });
+    } else if (tabsState.tabs.length) {
+      const fallbackTab = tabsState.tabs[tabsState.tabs.length - 1];
+      tabsState.activeTabId = fallbackTab.id;
+      applyTabSnapshot(fallbackTab.snapshot);
+      renderFileTabs();
+    } else {
+      tabsState.activeTabId = null;
+      resetState();
+      tableZone.classList.add("hidden");
+      dataTable.innerHTML = "";
+      rowCount.textContent = "0";
+      columnCount.textContent = "0";
+      renderFileTabs();
+    }
+
     setStatus("Could not parse this file. Check the file format and try again.", "warn");
-    resetState();
-    renderTable();
   }
 }
 
@@ -1057,16 +1470,11 @@ async function onDocumentFileDrop(event) {
   setFileDropActive(false);
 
   const files = Array.from(event.dataTransfer?.files || []);
-  const [file] = files;
-  if (!file) {
+  if (!files.length) {
     return;
   }
 
-  if (files.length > 1) {
-    setStatus("Multiple files dropped. Loading the first file only.", "warn");
-  }
-
-  await loadFile(file);
+  await loadFiles(files);
 }
 
 async function parseCurrentFile() {
@@ -1288,6 +1696,11 @@ function onDocumentKeyDown(event) {
     return;
   }
 
+  if (event.key === "Escape" && !rowDetailsOverlay.classList.contains("hidden")) {
+    closeRowDetailsOverlay();
+    return;
+  }
+
   if (event.key === "Escape" && !columnStatsOverlay.classList.contains("hidden")) {
     closeColumnStatsOverlay();
     return;
@@ -1410,13 +1823,25 @@ function onHelpOverlayClick(event) {
 }
 
 function onDataTableDoubleClick(event) {
+  const rowNumberCell = event.target.closest("td.row-number-cell");
+  if (rowNumberCell) {
+    const row = rowNumberCell.parentElement;
+    const rowId = row?.querySelector("td[data-row-id]")?.dataset?.rowId || "";
+    if (rowId) {
+      openRowDetailsOverlay(rowId);
+    }
+    return;
+  }
+
   const cell = event.target.closest("td[data-row-id][data-header]");
   if (!cell) {
     return;
   }
 
   const value = cell.textContent || "";
-  const rowIndex = Number(cell.parentElement?.querySelector(".row-number-cell")?.textContent || "");
+  const rowId = cell.dataset.rowId || "";
+  const rowFromState = getRowById(rowId);
+  const rowIndex = rowFromState ? Number(rowFromState.__sourceIndex) + 1 : null;
   openCellOverlay({
     header: cell.dataset.header || "Field",
     value,
@@ -1438,6 +1863,19 @@ function onDataTableContextMenu(event) {
       event.clientX,
       event.clientY
     );
+    return;
+  }
+
+  const rowNumberCell = event.target.closest("td.row-number-cell");
+  if (rowNumberCell) {
+    const row = rowNumberCell.parentElement;
+    const rowId = row?.querySelector("td[data-row-id]")?.dataset?.rowId || "";
+    if (!rowId) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    openRowDetailsOverlay(rowId);
     return;
   }
 
@@ -1478,6 +1916,130 @@ function onColumnStatsOverlayClick(event) {
   if (event.target === columnStatsOverlay) {
     closeColumnStatsOverlay();
   }
+}
+
+function closeRowDetailsOverlay() {
+  rowDetailsOverlay.classList.add("hidden");
+}
+
+function onRowDetailsOverlayClick(event) {
+  if (event.target === rowDetailsOverlay) {
+    closeRowDetailsOverlay();
+  }
+}
+
+function getRowById(rowId) {
+  if (!rowId) {
+    return null;
+  }
+  return state.rows.find((row) => row.__rowId === rowId) || null;
+}
+
+function toLogKey(header, usedKeys) {
+  const base = String(header || "field")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "field";
+
+  let key = base;
+  let suffix = 2;
+  while (usedKeys.has(key)) {
+    key = `${base}_${suffix}`;
+    suffix += 1;
+  }
+  usedKeys.add(key);
+  return key;
+}
+
+function toLogValue(value) {
+  const text = String(value || "");
+  if (!text) {
+    return '""';
+  }
+  if (/^[a-zA-Z0-9_./:@+\-]+$/.test(text)) {
+    return text;
+  }
+  return JSON.stringify(text);
+}
+
+function buildRowLogText(row, rowNumber) {
+  const parts = [];
+  const usedKeys = new Set();
+
+  parts.push(`row_number=${rowNumber}`);
+  parts.push(`source_index=${Number(row.__sourceIndex)}`);
+  if (state.fileName) {
+    parts.push(`source_file=${toLogValue(state.fileName)}`);
+  }
+
+  state.headers.forEach((header) => {
+    const key = toLogKey(header, usedKeys);
+    const value = toLogValue(row[header]);
+    parts.push(`${key}=${value}`);
+  });
+
+  return parts.join("\n");
+}
+
+function highlightLogEntryText(text) {
+  const tokenRegex = /([A-Za-z_][A-Za-z0-9_.-]*=)|("(?:\\.|[^"\\])*")|(\b(?:TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\b)|(\b(?:true|false|null)\b)|(-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)|(\b\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+\-]\d{2}:?\d{2})?)?\b)|(https?:\/\/[^\s"]+)/g;
+
+  return renderTokenizedHtml(text, tokenRegex, (match) => {
+    if (match[1]) {
+      return "cell-token-key";
+    }
+    if (match[2]) {
+      return "cell-token-string";
+    }
+    if (match[3]) {
+      return "cell-token-boolean";
+    }
+    if (match[4]) {
+      return "cell-token-null";
+    }
+    if (match[5]) {
+      return "cell-token-number";
+    }
+    if (match[6]) {
+      return "cell-token-datetime";
+    }
+    if (match[7]) {
+      return "cell-token-url";
+    }
+    return "";
+  });
+}
+
+function clearRowDetailsTabs() {
+  rowDetailsLog.textContent = "";
+  rowDetailsTitle.textContent = "Row Details";
+}
+
+function openRowDetailsOverlay(rowId) {
+  const row = getRowById(rowId);
+  if (!row) {
+    setStatus("Could not find that row.", "warn");
+    return;
+  }
+
+  const rowNumber = Number(row.__sourceIndex) + 1;
+  const logText = buildRowLogText(row, rowNumber);
+  rowDetailsTitle.textContent = `Row ${rowNumber} Details`;
+  rowDetailsLog.innerHTML = highlightLogEntryText(logText);
+
+  if (!helpOverlay.classList.contains("hidden")) {
+    closeHelpOverlay();
+  }
+  if (!cellOverlay.classList.contains("hidden")) {
+    closeCellOverlay();
+  }
+  if (!columnStatsOverlay.classList.contains("hidden")) {
+    closeColumnStatsOverlay();
+  }
+
+  rowDetailsOverlay.classList.remove("hidden");
+  rowDetailsCloseBtn.focus();
 }
 
 function formatStatCount(value) {
@@ -1668,6 +2230,62 @@ function onCellOverlayFontSizeInput(event) {
   applyCellOverlayFontSize(Number(event.target.value));
 }
 
+function applyRowDetailsFontSize(size) {
+  const nextSize = clampCellOverlayFontSize(Number(size) || 12);
+  rowDetailsFontSize = nextSize;
+  rowDetailsLog.style.fontSize = `${nextSize}px`;
+  rowFontSizeInput.value = String(nextSize);
+  rowFontSizeValue.textContent = `${nextSize}px`;
+}
+
+function adjustRowDetailsFontSize(delta) {
+  applyRowDetailsFontSize(rowDetailsFontSize + delta);
+}
+
+function onRowDetailsFontSizeInput(event) {
+  applyRowDetailsFontSize(Number(event.target.value));
+}
+
+function onRowDetailsResizeStart(event) {
+  if (!rowDetailsPanel) {
+    return;
+  }
+
+  event.preventDefault();
+  rowDetailsResizeState.active = true;
+  rowDetailsResizeState.startX = event.clientX;
+  rowDetailsResizeState.startWidth = rowDetailsPanel.getBoundingClientRect().width;
+  document.body.style.cursor = "ew-resize";
+  document.body.style.userSelect = "none";
+}
+
+function onRowDetailsResizeMove(event) {
+  if (!rowDetailsResizeState.active || !rowDetailsPanel || !tableZone) {
+    return;
+  }
+
+  const delta = rowDetailsResizeState.startX - event.clientX;
+  const zoneWidth = tableZone.getBoundingClientRect().width || window.innerWidth;
+  const minWidth = 360;
+  const maxWidth = Math.max(minWidth, zoneWidth - 80);
+  const nextWidth = Math.max(minWidth, Math.min(maxWidth, rowDetailsResizeState.startWidth + delta));
+  rowDetailsPanel.style.width = `${Math.round(nextWidth)}px`;
+}
+
+function onRowDetailsResizeStop() {
+  if (!rowDetailsResizeState.active) {
+    return;
+  }
+
+  rowDetailsResizeState.active = false;
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+}
+
+function copyRowDetailsLog() {
+  copyTextToClipboard(rowDetailsLog.textContent || "");
+}
+
 function escapeHtml(value) {
   return value
     .replace(/&/g, "&amp;")
@@ -1785,6 +2403,16 @@ function onColumnHeaderContextMenu(event, header) {
   showColumnContextMenu(header, event.clientX, event.clientY);
 }
 
+function onRowMenuTriggerClick(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const rowId = event.currentTarget?.dataset?.rowId || "";
+  if (!rowId) {
+    return;
+  }
+  openRowDetailsOverlay(rowId);
+}
+
 function showFieldContextMenu({ header, rowId, value }, clientX, clientY) {
   if (!header) {
     return;
@@ -1798,6 +2426,7 @@ function showFieldContextMenu({ header, rowId, value }, clientX, clientY) {
 
   fieldMenuCopyValue.textContent = "Copy Value";
   fieldMenuCopyCell.textContent = "Copy Cell";
+  fieldMenuViewRow.textContent = "View Row Details";
   fieldMenuFilterEquals.textContent = `Filter: ${header} = this value`;
   fieldMenuFilterNotEquals.textContent = `Filter: ${header} != this value`;
   fieldMenuVirusTotal.textContent = `VirusTotal Lookup for ${header}`;
@@ -1819,6 +2448,15 @@ function copyFieldContextValue() {
   const value = fieldContextState.value;
   hideFieldContextMenu();
   copyTextToClipboard(value);
+}
+
+function openRowDetailsFromFieldContext() {
+  const rowId = fieldContextState.rowId;
+  hideFieldContextMenu();
+  if (!rowId) {
+    return;
+  }
+  openRowDetailsOverlay(rowId);
 }
 
 function copyFieldContextCell() {
@@ -1888,6 +2526,14 @@ function toggleWordWrap() {
   setStatus(`Word Wrap Fields: ${state.wordWrap ? "On" : "Off"}.`, "ok");
 }
 
+function toggleRowNumberVisibility() {
+  state.showRowNumbers = !state.showRowNumbers;
+  persistRowNumberVisibilityPreference(state.showRowNumbers);
+  syncMenuCheckboxStates();
+  renderTable();
+  setStatus(`Line numbers: ${state.showRowNumbers ? "On" : "Off"}.`, "ok");
+}
+
 function setTheme(theme) {
   if (!SUPPORTED_THEMES.has(theme) || state.theme === theme) {
     syncMenuCheckboxStates();
@@ -1940,10 +2586,13 @@ function getVisibleHeaders() {
 function syncMenuCheckboxStates() {
   firstRowHeaderMenuItem.setAttribute("aria-checked", state.firstRowIsHeader ? "true" : "false");
   wordWrapMenuItem.setAttribute("aria-checked", state.wordWrap ? "true" : "false");
+  lineNumberVisibleMenuItem.setAttribute("aria-checked", state.showRowNumbers ? "true" : "false");
   themeLightMenuItem.setAttribute("aria-checked", state.theme === "light" ? "true" : "false");
   themeDarkMenuItem.setAttribute("aria-checked", state.theme === "dark" ? "true" : "false");
   themeMaterialLightMenuItem.setAttribute("aria-checked", state.theme === "material-light" ? "true" : "false");
   themeMaterialDarkMenuItem.setAttribute("aria-checked", state.theme === "material-dark" ? "true" : "false");
+  themeIosLightMenuItem.setAttribute("aria-checked", state.theme === "ios-light" ? "true" : "false");
+  themeIosDarkMenuItem.setAttribute("aria-checked", state.theme === "ios-dark" ? "true" : "false");
   themeNeonPartyMenuItem.setAttribute("aria-checked", state.theme === "neon-party" ? "true" : "false");
   hideEmptyColsMenuItem.setAttribute("aria-checked", state.hideEmptyCols ? "true" : "false");
   virtualizedRenderMenuItem.setAttribute("aria-checked", state.virtualizedRendering ? "true" : "false");
@@ -1968,11 +2617,32 @@ function loadThemePreference() {
   }
 }
 
+function loadRowNumberVisibilityPreference() {
+  try {
+    const stored = localStorage.getItem(ROW_NUMBER_VISIBILITY_STORAGE_KEY);
+    if (stored === "0") {
+      state.showRowNumbers = false;
+    } else if (stored === "1") {
+      state.showRowNumbers = true;
+    }
+  } catch (error) {
+    console.warn("Line-number preference could not be read from localStorage.", error);
+  }
+}
+
 function persistThemePreference(theme) {
   try {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
   } catch (error) {
     console.warn("Theme preference could not be saved to localStorage.", error);
+  }
+}
+
+function persistRowNumberVisibilityPreference(isVisible) {
+  try {
+    localStorage.setItem(ROW_NUMBER_VISIBILITY_STORAGE_KEY, isVisible ? "1" : "0");
+  } catch (error) {
+    console.warn("Line-number preference could not be saved to localStorage.", error);
   }
 }
 
@@ -2371,6 +3041,7 @@ function hydrateState(headers, rows) {
   state.advancedSearch = "";
   state.advancedSearchAst = null;
   state.advancedSearchError = "";
+  state.rowColorByColumn = "";
   state.filteredRows = state.rows;
   state.visibleRowIds = [];
   state.sort = { header: null, direction: null };
@@ -2428,6 +3099,14 @@ function ensureColumnWidths() {
   state.columnWidths = next;
 }
 
+function getLeadingColumnCount() {
+  return state.showRowNumbers ? 2 : 1;
+}
+
+function getLeadingTableWidth() {
+  return SELECTION_COLUMN_WIDTH + (state.showRowNumbers ? state.rowNumberWidth : 0);
+}
+
 function syncDataTableWidth(visibleHeaders = getVisibleHeaders()) {
   if (!dataTable) {
     return;
@@ -2439,7 +3118,7 @@ function syncDataTableWidth(visibleHeaders = getVisibleHeaders()) {
   }
 
   const totalWidth = visibleHeaders.reduce((sum, header) => sum + (state.columnWidths[header] || COL_MIN_PX), 0);
-  const fullWidth = SELECTION_COLUMN_WIDTH + state.rowNumberWidth + totalWidth;
+  const fullWidth = getLeadingTableWidth() + totalWidth;
   dataTable.style.width = `${Math.max(1, Math.round(fullWidth))}px`;
 }
 
@@ -2458,6 +3137,7 @@ function resetState() {
   state.advancedSearch = "";
   state.advancedSearchAst = null;
   state.advancedSearchError = "";
+  state.rowColorByColumn = "";
   state.sort = { header: null, direction: null };
   state.selectedRowIds = new Set();
   state.columnWidths = {};
@@ -2488,22 +3168,16 @@ function resetState() {
   updateSqliteTablePicker();
   updateTimeWindowControls();
   updateSelectedActionsVisibility();
+  clearRowDetailsTabs();
 }
 
 function closeFile() {
-  state.fileText = "";
-  state.fileBuffer = null;
-  state.fileName = "";
-  state.fileType = "";
-  state.sqliteTables = [];
-  state.sqliteTableName = "";
-  resetState();
-  tableZone.classList.add("hidden");
-  dataTable.innerHTML = "";
-  rowCount.textContent = "0";
-  columnCount.textContent = "0";
-  detachVirtualScrollHandler();
-  setStatus("File closed.", "ok");
+  if (tabsState.activeTabId === null) {
+    setStatus("No file tab is open.", "warn");
+    return;
+  }
+
+  closeTab(tabsState.activeTabId);
 }
 
 function showFindBar() {
@@ -2856,19 +3530,21 @@ function appendTableHeader(thead, visibleHeaders) {
   selectAllTh.appendChild(selectAll);
   headerRow.appendChild(selectAllTh);
 
-  const rowNumberTh = document.createElement("th");
-  rowNumberTh.className = "row-number-col";
-  rowNumberTh.style.width = `${state.rowNumberWidth}px`;
-  rowNumberTh.title = "Original row number";
-  rowNumberTh.textContent = "#";
+  if (state.showRowNumbers) {
+    const rowNumberTh = document.createElement("th");
+    rowNumberTh.className = "row-number-col";
+    rowNumberTh.style.width = `${state.rowNumberWidth}px`;
+    rowNumberTh.title = "Original row number";
+    rowNumberTh.textContent = "#";
 
-  const rowNumberResize = document.createElement("div");
-  rowNumberResize.className = "resize-handle row-number-resize";
-  rowNumberResize.dataset.header = "__rowNumber";
-  rowNumberResize.dataset.colIndex = "-2";
-  rowNumberResize.addEventListener("mousedown", onColumnResizeStart);
-  rowNumberTh.appendChild(rowNumberResize);
-  headerRow.appendChild(rowNumberTh);
+    const rowNumberResize = document.createElement("div");
+    rowNumberResize.className = "resize-handle row-number-resize";
+    rowNumberResize.dataset.header = "__rowNumber";
+    rowNumberResize.dataset.colIndex = "-2";
+    rowNumberResize.addEventListener("mousedown", onColumnResizeStart);
+    rowNumberTh.appendChild(rowNumberResize);
+    headerRow.appendChild(rowNumberTh);
+  }
 
   visibleHeaders.forEach((header) => {
     const th = document.createElement("th");
@@ -2954,6 +3630,7 @@ function appendTableHeader(thead, visibleHeaders) {
 
 function appendDataRow(tbody, row, visibleHeaders) {
   const tr = document.createElement("tr");
+  applyRowColoring(tr, row);
 
   const selectTd = document.createElement("td");
   selectTd.className = "selection-cell";
@@ -2966,10 +3643,30 @@ function appendDataRow(tbody, row, visibleHeaders) {
   selectTd.appendChild(checkbox);
   tr.appendChild(selectTd);
 
-  const rowNumberTd = document.createElement("td");
-  rowNumberTd.className = "row-number-cell";
-  rowNumberTd.textContent = String(row.__sourceIndex + 1);
-  tr.appendChild(rowNumberTd);
+  if (state.showRowNumbers) {
+    const rowNumberTd = document.createElement("td");
+    rowNumberTd.className = "row-number-cell";
+
+    const rowNumberInner = document.createElement("div");
+    rowNumberInner.className = "row-number-inner";
+
+    const rowMenuBtn = document.createElement("button");
+    rowMenuBtn.type = "button";
+    rowMenuBtn.className = "row-menu-trigger";
+    rowMenuBtn.dataset.rowId = row.__rowId;
+    rowMenuBtn.title = "Open row details";
+    rowMenuBtn.textContent = "\u25B8";
+    rowMenuBtn.addEventListener("click", onRowMenuTriggerClick);
+
+    const rowNumberText = document.createElement("span");
+    rowNumberText.className = "row-number-text";
+    rowNumberText.textContent = String(row.__sourceIndex + 1);
+
+    rowNumberInner.appendChild(rowMenuBtn);
+    rowNumberInner.appendChild(rowNumberText);
+    rowNumberTd.appendChild(rowNumberInner);
+    tr.appendChild(rowNumberTd);
+  }
 
   visibleHeaders.forEach((header) => {
     const td = document.createElement("td");
@@ -3050,7 +3747,7 @@ function appendGroupedRenderItem(tbody, item) {
   headerRow.className = "group-header-row";
 
   const headerCell = document.createElement("td");
-  headerCell.colSpan = item.visibleHeaders.length + 2;
+  headerCell.colSpan = item.visibleHeaders.length + getLeadingColumnCount();
   headerCell.style.padding = "0";
 
   const headerContent = document.createElement("div");
@@ -3149,10 +3846,12 @@ async function renderGroupedView(options = {}, renderPassId = renderState.render
   selectionCol.style.width = `${SELECTION_COLUMN_WIDTH}px`;
   colgroup.appendChild(selectionCol);
 
-  const rowNumberCol = document.createElement("col");
-  rowNumberCol.className = "row-number-col";
-  rowNumberCol.style.width = `${state.rowNumberWidth}px`;
-  colgroup.appendChild(rowNumberCol);
+  if (state.showRowNumbers) {
+    const rowNumberCol = document.createElement("col");
+    rowNumberCol.className = "row-number-col";
+    rowNumberCol.style.width = `${state.rowNumberWidth}px`;
+    colgroup.appendChild(rowNumberCol);
+  }
   visibleHeaders.forEach((header) => {
     const col = document.createElement("col");
     col.dataset.header = header;
@@ -3223,10 +3922,12 @@ async function renderTable(options = {}) {
   selectionCol.style.width = `${SELECTION_COLUMN_WIDTH}px`;
   colgroup.appendChild(selectionCol);
 
-  const rowNumberCol = document.createElement("col");
-  rowNumberCol.className = "row-number-col";
-  rowNumberCol.style.width = `${state.rowNumberWidth}px`;
-  colgroup.appendChild(rowNumberCol);
+  if (state.showRowNumbers) {
+    const rowNumberCol = document.createElement("col");
+    rowNumberCol.className = "row-number-col";
+    rowNumberCol.style.width = `${state.rowNumberWidth}px`;
+    colgroup.appendChild(rowNumberCol);
+  }
 
   visibleHeaders.forEach((header) => {
     const col = document.createElement("col");
@@ -3305,7 +4006,7 @@ function renderVirtualizedRows() {
   }
 
   const tbody = document.createElement("tbody");
-  const colspan = visibleHeaders.length + 2;
+  const colspan = visibleHeaders.length + getLeadingColumnCount();
 
   if (startIndex > 0) {
     const topSpacerRow = document.createElement("tr");
@@ -3339,7 +4040,7 @@ function renderVirtualizedRows() {
 
   dataTable.appendChild(tbody);
 
-  const sampleRow = tbody.querySelector("tr td.row-number-cell")?.parentElement;
+  const sampleRow = tbody.querySelector("tr td[data-row-id]")?.parentElement;
   if (sampleRow) {
     const measured = Math.round(sampleRow.getBoundingClientRect().height);
     if (measured >= 24 && measured <= 80) {
@@ -3457,6 +4158,7 @@ function syncRenderedColumnMetadata() {
 function moveRenderedColumnNodes(fromVisibleIndex, targetVisibleIndex, visibleCount) {
   const headerRow = dataTable.querySelector("thead tr");
   const colgroup = dataTable.querySelector("colgroup");
+  const leadingOffset = getLeadingColumnCount();
 
   if (!headerRow || !colgroup) {
     return false;
@@ -3474,18 +4176,18 @@ function moveRenderedColumnNodes(fromVisibleIndex, targetVisibleIndex, visibleCo
     return true;
   };
 
-  if (!moveChild(colgroup, 2) || !moveChild(headerRow, 2)) {
+  if (!moveChild(colgroup, leadingOffset) || !moveChild(headerRow, leadingOffset)) {
     return false;
   }
 
   const bodyRows = Array.from(dataTable.querySelectorAll("tbody tr"));
   bodyRows.forEach((row) => {
-    if (row.children.length <= fromVisibleIndex + 2) {
+    if (row.children.length <= fromVisibleIndex + leadingOffset) {
       return;
     }
 
-    const movedNode = row.children[fromVisibleIndex + 2];
-    const referenceNode = targetVisibleIndex >= visibleCount ? null : row.children[targetVisibleIndex + 2] || null;
+    const movedNode = row.children[fromVisibleIndex + leadingOffset];
+    const referenceNode = targetVisibleIndex >= visibleCount ? null : row.children[targetVisibleIndex + leadingOffset] || null;
     row.insertBefore(movedNode, referenceNode);
   });
 
@@ -3506,7 +4208,7 @@ function applyColumnReorder(draggedHeader, targetVisibleIndex) {
 }
 
 function calculatePinnedColumnLeftOffset(header) {
-  let leftOffset = state.rowNumberWidth + 16;
+  let leftOffset = getLeadingTableWidth();
   for (const pinnedHeader of state.pinnedColumns) {
     if (pinnedHeader === header) {
       return leftOffset;
@@ -3537,8 +4239,70 @@ function hideColumn(header) {
     return;
   }
   state.hiddenColumns.add(header);
+  if (state.rowColorByColumn === header) {
+    state.rowColorByColumn = "";
+  }
   state.pinnedColumns = state.pinnedColumns.filter((h) => h !== header);
   renderTable();
+}
+
+function setRowColorByColumn(header) {
+  if (!header || !state.headers.includes(header)) {
+    return;
+  }
+
+  state.rowColorByColumn = header;
+  renderTable();
+  setStatus(`Row colouring enabled for ${header}.`, "ok");
+}
+
+function clearRowColorByColumn() {
+  if (!state.rowColorByColumn) {
+    return;
+  }
+
+  state.rowColorByColumn = "";
+  renderTable();
+  setStatus("Row colouring cleared.", "ok");
+}
+
+function hashTextToHue(value) {
+  let hash = 0;
+  const text = String(value || "");
+
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  }
+
+  return hash % 360;
+}
+
+function getRowColorStyleByValue(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) {
+    return null;
+  }
+
+  const hue = hashTextToHue(value);
+  return {
+    bg: `hsla(${hue}, 80%, 92%, 0.95)`,
+    hover: `hsla(${hue}, 82%, 88%, 0.98)`
+  };
+}
+
+function applyRowColoring(tr, row) {
+  if (!state.rowColorByColumn) {
+    return;
+  }
+
+  const style = getRowColorStyleByValue(row[state.rowColorByColumn]);
+  if (!style) {
+    return;
+  }
+
+  tr.classList.add("row-value-colored");
+  tr.style.setProperty("--row-value-bg", style.bg);
+  tr.style.setProperty("--row-value-hover", style.hover);
 }
 
 function showColumnContextMenu(header, clientX, clientY) {
@@ -3553,6 +4317,9 @@ function showColumnContextMenu(header, clientX, clientY) {
   const isPinned = state.pinnedColumns.includes(header);
   contextMenuPin.classList.toggle("hidden", isPinned);
   contextMenuUnpin.classList.toggle("hidden", !isPinned);
+  const isActiveColorColumn = state.rowColorByColumn === header;
+  contextMenuColorRows.classList.toggle("hidden", isActiveColorColumn);
+  contextMenuClearRowColor.classList.toggle("hidden", !state.rowColorByColumn);
 }
 
 function hideColumnContextMenu() {
