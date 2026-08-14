@@ -8,6 +8,13 @@
   </head>
   <body>
     <main class="app-shell">
+      <div id="fileDropOverlay" class="file-drop-overlay" aria-hidden="true">
+        <div class="file-drop-panel" role="status" aria-live="polite">
+          <p class="file-drop-title">Drop File to Open</p>
+          <p class="file-drop-subtitle">CSV, JSON, and SQLite files are supported</p>
+        </div>
+      </div>
+
       <div class="top-chrome">
         <header class="menu-bar-wrap">
           <nav class="menu-bar" aria-label="Application menu">
@@ -44,6 +51,24 @@
                   Virtualized Rendering
                 </button>
                 <button id="clearFiltersMenuItem" class="menu-action" type="button" role="menuitem">Clear Filters</button>
+                <div class="menu-submenu-item" role="none">
+                  <button id="timeWindowMenuItem" class="menu-action menu-submenu-trigger" type="button" role="menuitem" aria-haspopup="true" aria-expanded="false">
+                    <span>Time Range Filter</span>
+                    <span class="menu-submenu-arrow" aria-hidden="true">&#9656;</span>
+                  </button>
+                  <div id="timeWindowColumnMenu" class="menu-submenu" role="menu" aria-labelledby="timeWindowMenuItem">
+                    <button id="timeWindowEnabledMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
+                      Enable Time Range Filter
+                    </button>
+                    <div class="menu-submenu-item" role="none">
+                      <button id="timeWindowFieldMenuItem" class="menu-action menu-submenu-trigger" type="button" role="menuitem" aria-haspopup="true" aria-expanded="false">
+                        <span>Time column</span>
+                        <span class="menu-submenu-arrow" aria-hidden="true">&#9656;</span>
+                      </button>
+                      <div id="timeWindowFieldMenu" class="menu-submenu" role="menu" aria-labelledby="timeWindowFieldMenuItem"></div>
+                    </div>
+                  </div>
+                </div>
                 <div class="menu-submenu-item" role="none">
                   <button id="themeMenuItem" class="menu-action menu-submenu-trigger" type="button" role="menuitem" aria-haspopup="true" aria-expanded="false">
                     <span>Theme</span>
@@ -86,7 +111,7 @@
             <button id="copyVisibleBtn" class="tool-btn" type="button">Copy Visible</button>
             <button id="clearFiltersBtn" class="tool-btn" type="button">Clear Filters</button>
           </div>
-          <p id="status" class="status" aria-live="polite">Use File > Open or the Open File button to load CSV/JSON/SQLite.</p>
+          <p id="status" class="status" aria-live="polite">Use File > Open, the Open File button, or drag and drop a file to load CSV/JSON/SQLite.</p>
         </section>
       </div>
 
@@ -99,6 +124,16 @@
           <div class="help-panel-body">
             <p>Timeline Exploder is a simple, web-based utility for browsing CSV, JSON and SQLite files. It is heavily inspired from <a href="https://www.sans.org/tools/timeline-explorer" target="_blank">Eric Zimmerman's Timeline Explorer</a>.</p>
             <p>All processing is handled on the client-site, <strong>no data is sent to any server.</strong></p>
+            <p><strong>Keyboard shortcuts:</strong><br />
+              Cmd/Ctrl+O: Open file<br />
+              Cmd/Ctrl+F: Show find bar<br />
+              F3 / Shift+F3: Next/Previous find match<br />
+              Alt+G: Focus global search<br />
+              Alt+F: Clear filters<br />
+              Alt+V: Copy visible rows<br />
+              Alt+S: Copy selected rows<br />
+              Alt+B: Clear grouping
+            </p>
             <p>The source code can be found on <a href="https://github.com/skryptkiddie/timeline-exploder" target="_blank">GitHub</a>.</p>
           </div>
         </div>
@@ -125,6 +160,32 @@
         </div>
       </div>
 
+      <div id="columnStatsOverlay" class="help-overlay column-stats-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="columnStatsTitle">
+        <div class="help-panel column-stats-panel" role="document">
+          <div class="help-panel-header">
+            <h2 id="columnStatsTitle" class="help-title">Column Stats</h2>
+            <button id="columnStatsCloseBtn" class="help-close-btn" type="button" aria-label="Close column stats">&times;</button>
+          </div>
+          <div class="help-panel-body column-stats-body">
+            <p id="columnStatsMeta" class="column-stats-meta"></p>
+            <div class="column-stats-grid">
+              <p class="column-stats-item"><span>Total rows</span><strong id="columnStatsTotalRows">0</strong></p>
+              <p class="column-stats-item"><span>Visible rows</span><strong id="columnStatsVisibleRows">0</strong></p>
+              <p class="column-stats-item"><span>Empty values</span><strong id="columnStatsEmptyValues">0</strong></p>
+              <p class="column-stats-item"><span>Distinct values</span><strong id="columnStatsDistinctValues">0</strong></p>
+              <p class="column-stats-item"><span>Numeric-looking values</span><strong id="columnStatsNumericValues">0</strong></p>
+              <p class="column-stats-item"><span>Average length</span><strong id="columnStatsAvgLength">0</strong></p>
+              <p class="column-stats-item"><span>Min length (non-empty)</span><strong id="columnStatsMinLength">0</strong></p>
+              <p class="column-stats-item"><span>Max length</span><strong id="columnStatsMaxLength">0</strong></p>
+            </div>
+            <div class="column-stats-top-values-wrap">
+              <h3 class="column-stats-subtitle">Top values (visible rows)</h3>
+              <ol id="columnStatsTopValues" class="column-stats-top-values"></ol>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <section class="table-zone hidden" id="tableZone">
         <div class="meta-row">
           <p>Rows: <strong id="rowCount">0</strong></p>
@@ -139,6 +200,14 @@
             <button id="findPrevBtn" class="tool-btn find-btn" type="button" title="Previous match">Prev</button>
             <button id="findNextBtn" class="tool-btn find-btn" type="button" title="Next match">Next</button>
             <span id="findCount" class="find-count">0 / 0</span>
+          </div>
+          <div id="timeWindowWrap" class="time-window-wrap hidden">
+            <span class="time-window-label">Time:</span>
+            <span id="timeWindowColumnLabel" class="time-window-column-label">(no column)</span>
+            <input id="timeWindowStartInput" class="time-window-input" type="datetime-local" aria-label="Time start" />
+            <span class="time-window-sep">to</span>
+            <input id="timeWindowEndInput" class="time-window-input" type="datetime-local" aria-label="Time end" />
+            <button id="timeWindowClearBtn" class="tool-btn time-window-clear-btn" type="button" title="Clear time range">Clear</button>
           </div>
           <div id="groupByZone" class="group-by-zone" data-drop-active="false">
             <p id="groupByHint" class="group-by-hint">Drop column here to group</p>
@@ -159,6 +228,7 @@
         <div id="columnContextMenu" class="column-context-menu hidden" role="menu">
           <button id="contextMenuPin" class="context-menu-item" type="button" role="menuitem">Pin Column</button>
           <button id="contextMenuUnpin" class="context-menu-item" type="button" role="menuitem">Unpin Column</button>
+          <button id="contextMenuStats" class="context-menu-item" type="button" role="menuitem">Column Stats</button>
           <button id="contextMenuHide" class="context-menu-item" type="button" role="menuitem">Hide Column</button>
         </div>
       </section>

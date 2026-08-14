@@ -1,4 +1,6 @@
 const fileInput = document.getElementById("fileInput");
+const appShell = document.querySelector(".app-shell");
+const fileDropOverlay = document.getElementById("fileDropOverlay");
 const dataTable = document.getElementById("dataTable");
 const tableScroll = document.querySelector(".table-scroll");
 const tableZone = document.getElementById("tableZone");
@@ -47,6 +49,10 @@ const themeDarkMenuItem = document.getElementById("themeDarkMenuItem");
 const themeMaterialLightMenuItem = document.getElementById("themeMaterialLightMenuItem");
 const themeMaterialDarkMenuItem = document.getElementById("themeMaterialDarkMenuItem");
 const themeNeonPartyMenuItem = document.getElementById("themeNeonPartyMenuItem");
+const timeWindowMenuItem = document.getElementById("timeWindowMenuItem");
+const timeWindowColumnMenu = document.getElementById("timeWindowColumnMenu");
+const timeWindowEnabledMenuItem = document.getElementById("timeWindowEnabledMenuItem");
+const timeWindowFieldMenu = document.getElementById("timeWindowFieldMenu");
 const clearFiltersMenuItem = document.getElementById("clearFiltersMenuItem");
 const copySelectedMenuItem = document.getElementById("copySelectedMenuItem");
 const copyVisibleMenuItem = document.getElementById("copyVisibleMenuItem");
@@ -57,10 +63,29 @@ const findInput = document.getElementById("findInput");
 const findPrevBtn = document.getElementById("findPrevBtn");
 const findNextBtn = document.getElementById("findNextBtn");
 const findCount = document.getElementById("findCount");
+const timeWindowWrap = document.getElementById("timeWindowWrap");
+const timeWindowColumnLabel = document.getElementById("timeWindowColumnLabel");
+const timeWindowStartInput = document.getElementById("timeWindowStartInput");
+const timeWindowEndInput = document.getElementById("timeWindowEndInput");
+const timeWindowClearBtn = document.getElementById("timeWindowClearBtn");
 const columnContextMenu = document.getElementById("columnContextMenu");
 const contextMenuPin = document.getElementById("contextMenuPin");
 const contextMenuUnpin = document.getElementById("contextMenuUnpin");
+const contextMenuStats = document.getElementById("contextMenuStats");
 const contextMenuHide = document.getElementById("contextMenuHide");
+const columnStatsOverlay = document.getElementById("columnStatsOverlay");
+const columnStatsCloseBtn = document.getElementById("columnStatsCloseBtn");
+const columnStatsTitle = document.getElementById("columnStatsTitle");
+const columnStatsMeta = document.getElementById("columnStatsMeta");
+const columnStatsTotalRows = document.getElementById("columnStatsTotalRows");
+const columnStatsVisibleRows = document.getElementById("columnStatsVisibleRows");
+const columnStatsEmptyValues = document.getElementById("columnStatsEmptyValues");
+const columnStatsDistinctValues = document.getElementById("columnStatsDistinctValues");
+const columnStatsNumericValues = document.getElementById("columnStatsNumericValues");
+const columnStatsAvgLength = document.getElementById("columnStatsAvgLength");
+const columnStatsMinLength = document.getElementById("columnStatsMinLength");
+const columnStatsMaxLength = document.getElementById("columnStatsMaxLength");
+const columnStatsTopValues = document.getElementById("columnStatsTopValues");
 
 const state = {
   headers: [],
@@ -87,6 +112,13 @@ const state = {
   fileType: "",
   sqliteTables: [],
   sqliteTableName: "",
+  datetimeHeaders: [],
+  timeWindow: {
+    enabled: false,
+    column: "",
+    start: "",
+    end: ""
+  },
   visibleRowIds: [],
   groupByColumns: [], // Ordered list of columns used for drill-down grouping
   expandedGroups: new Set(), // Track which group values are expanded
@@ -131,6 +163,10 @@ const columnContextState = {
   header: null,
   clientX: 0,
   clientY: 0
+};
+
+const fileDropState = {
+  dragDepth: 0
 };
 
 const RENDER_BATCH_SIZE = 350;
@@ -261,6 +297,8 @@ helpCloseBtn.addEventListener("click", closeHelpOverlay);
 helpOverlay.addEventListener("click", onHelpOverlayClick);
 cellOverlayCloseBtn.addEventListener("click", closeCellOverlay);
 cellOverlay.addEventListener("click", onCellOverlayClick);
+columnStatsCloseBtn.addEventListener("click", closeColumnStatsOverlay);
+columnStatsOverlay.addEventListener("click", onColumnStatsOverlayClick);
 dataTable.addEventListener("dblclick", onDataTableDoubleClick);
 cellFontSizeInput.addEventListener("input", onCellOverlayFontSizeInput);
 cellFontDecreaseBtn.addEventListener("click", () => adjustCellOverlayFontSize(-1));
@@ -299,6 +337,13 @@ wordWrapMenuItem.addEventListener("click", () => {
 themeMenuItem.addEventListener("click", (event) => {
   event.stopPropagation();
 });
+
+timeWindowMenuItem.addEventListener("click", (event) => {
+  event.stopPropagation();
+});
+
+timeWindowEnabledMenuItem.addEventListener("click", onTimeWindowEnabledMenuItemClick);
+timeWindowFieldMenu.addEventListener("click", onTimeWindowFieldMenuClick);
 
 themeLightMenuItem.addEventListener("click", () => {
   closeAllMenus();
@@ -344,6 +389,9 @@ findInput.addEventListener("input", onFindInput);
 findInput.addEventListener("keydown", onFindInputKeyDown);
 findPrevBtn.addEventListener("click", findPreviousMatch);
 findNextBtn.addEventListener("click", findNextMatch);
+timeWindowStartInput.addEventListener("change", onTimeWindowInputChange);
+timeWindowEndInput.addEventListener("change", onTimeWindowInputChange);
+timeWindowClearBtn.addEventListener("click", clearTimeWindowFilter);
 
 contextMenuPin.addEventListener("click", () => {
   if (columnContextState.header) {
@@ -359,6 +407,15 @@ contextMenuUnpin.addEventListener("click", () => {
   hideColumnContextMenu();
 });
 
+contextMenuStats.addEventListener("click", () => {
+  const header = columnContextState.header;
+  hideColumnContextMenu();
+  if (!header) {
+    return;
+  }
+  openColumnStatsOverlay(header);
+});
+
 contextMenuHide.addEventListener("click", () => {
   if (columnContextState.header) {
     hideColumn(columnContextState.header);
@@ -368,6 +425,10 @@ contextMenuHide.addEventListener("click", () => {
 
 document.addEventListener("click", onDocumentClick);
 document.addEventListener("keydown", onDocumentKeyDown);
+document.addEventListener("dragenter", onDocumentFileDragEnter);
+document.addEventListener("dragover", onDocumentFileDragOver);
+document.addEventListener("dragleave", onDocumentFileDragLeave);
+document.addEventListener("drop", onDocumentFileDrop);
 document.addEventListener("mousemove", onColumnResizeMove);
 document.addEventListener("mouseup", onColumnResizeStop);
 document.addEventListener("mousemove", onGroupDragMove);
@@ -381,10 +442,19 @@ applyTheme();
 applyWordWrapClass();
 updateSelectedActionsVisibility();
 updateSqliteTablePicker();
+updateTimeWindowControls();
 applyCellOverlayFontSize(cellOverlayFontSize);
 
 async function onFileSelected(event) {
   const [file] = event.target.files;
+  if (!file) {
+    return;
+  }
+
+  await loadFile(file);
+}
+
+async function loadFile(file) {
   if (!file) {
     return;
   }
@@ -441,6 +511,82 @@ async function onFileSelected(event) {
     resetState();
     renderTable();
   }
+}
+
+function eventHasFiles(event) {
+  const types = event.dataTransfer?.types;
+  if (!types) {
+    return false;
+  }
+
+  return Array.from(types).includes("Files");
+}
+
+function setFileDropActive(isActive) {
+  if (!appShell) {
+    return;
+  }
+
+  appShell.dataset.fileDropActive = isActive ? "true" : "false";
+  if (fileDropOverlay) {
+    fileDropOverlay.setAttribute("aria-hidden", isActive ? "false" : "true");
+  }
+}
+
+function onDocumentFileDragEnter(event) {
+  if (!eventHasFiles(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  fileDropState.dragDepth += 1;
+  setFileDropActive(true);
+}
+
+function onDocumentFileDragOver(event) {
+  if (!eventHasFiles(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "copy";
+  }
+  setFileDropActive(true);
+}
+
+function onDocumentFileDragLeave(event) {
+  if (!eventHasFiles(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  fileDropState.dragDepth = Math.max(0, fileDropState.dragDepth - 1);
+  if (fileDropState.dragDepth === 0) {
+    setFileDropActive(false);
+  }
+}
+
+async function onDocumentFileDrop(event) {
+  if (!eventHasFiles(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  fileDropState.dragDepth = 0;
+  setFileDropActive(false);
+
+  const files = Array.from(event.dataTransfer?.files || []);
+  const [file] = files;
+  if (!file) {
+    return;
+  }
+
+  if (files.length > 1) {
+    setStatus("Multiple files dropped. Loading the first file only.", "warn");
+  }
+
+  await loadFile(file);
 }
 
 async function parseCurrentFile() {
@@ -637,7 +783,25 @@ function onDocumentClick(event) {
   hideColumnContextMenu();
 }
 
+function isEditableTarget(target) {
+  if (!target || !(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
 function onDocumentKeyDown(event) {
+  if (event.key === "Escape" && !columnStatsOverlay.classList.contains("hidden")) {
+    closeColumnStatsOverlay();
+    return;
+  }
+
   if (event.key === "Escape" && !cellOverlay.classList.contains("hidden")) {
     closeCellOverlay();
     return;
@@ -648,7 +812,58 @@ function onDocumentKeyDown(event) {
     return;
   }
 
-  const isOpenShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "o";
+  const isTyping = isEditableTarget(event.target);
+  const key = event.key.toLowerCase();
+  const isMod = event.ctrlKey || event.metaKey;
+  const isAltOnly = event.altKey && !isMod;
+
+  if (event.key === "F3" && state.headers.length) {
+    event.preventDefault();
+    if (event.shiftKey) {
+      findPreviousMatch();
+    } else {
+      findNextMatch();
+    }
+    return;
+  }
+
+  if (isTyping && !isMod) {
+    return;
+  }
+
+  if (isAltOnly && key === "g" && state.headers.length) {
+    event.preventDefault();
+    globalSearchInput.focus();
+    globalSearchInput.select();
+    return;
+  }
+
+  if (isAltOnly && key === "f" && state.headers.length) {
+    event.preventDefault();
+    clearAllFilters();
+    return;
+  }
+
+  if (isAltOnly && key === "v" && state.headers.length) {
+    event.preventDefault();
+    copyVisibleRows();
+    return;
+  }
+
+  if (isAltOnly && key === "s" && state.headers.length) {
+    event.preventDefault();
+    copySelectedRows();
+    return;
+  }
+
+  if (isAltOnly && key === "b" && state.groupByColumns.length) {
+    event.preventDefault();
+    clearGroupBy();
+    setStatus("Grouping cleared.", "ok");
+    return;
+  }
+
+  const isOpenShortcut = isMod && key === "o";
   if (isOpenShortcut) {
     event.preventDefault();
     closeAllMenus();
@@ -656,7 +871,7 @@ function onDocumentKeyDown(event) {
     return;
   }
 
-  const isFindShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f";
+  const isFindShortcut = isMod && key === "f";
   if (isFindShortcut && state.headers.length) {
     event.preventDefault();
     showFindBar();
@@ -727,6 +942,161 @@ function onCellOverlayClick(event) {
   if (event.target === cellOverlay) {
     closeCellOverlay();
   }
+}
+
+function closeColumnStatsOverlay() {
+  columnStatsOverlay.classList.add("hidden");
+}
+
+function onColumnStatsOverlayClick(event) {
+  if (event.target === columnStatsOverlay) {
+    closeColumnStatsOverlay();
+  }
+}
+
+function formatStatCount(value) {
+  return Number(value || 0).toLocaleString();
+}
+
+function formatStatPercent(part, whole) {
+  if (!whole) {
+    return "0.0%";
+  }
+  return `${((part / whole) * 100).toFixed(1)}%`;
+}
+
+function isNumericLike(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed);
+}
+
+function formatTopValueDisplay(value) {
+  const safe = value || "";
+  if (!safe.trim()) {
+    return "(blank)";
+  }
+
+  const maxLen = 120;
+  if (safe.length <= maxLen) {
+    return safe;
+  }
+
+  return `${safe.slice(0, maxLen)}...`;
+}
+
+function computeColumnStats(header) {
+  const totalRows = state.rows.length;
+  const visibleRows = state.filteredRows.length;
+  const visibleValueCounts = new Map();
+  const distinctValues = new Set();
+  let emptyCount = 0;
+  let numericCount = 0;
+  let maxLength = 0;
+  let minLength = Infinity;
+  let nonEmptyLengthTotal = 0;
+  let nonEmptyCount = 0;
+
+  for (const row of state.rows) {
+    const value = String(row[header] || "");
+    const trimmed = value.trim();
+    distinctValues.add(value);
+
+    if (!trimmed) {
+      emptyCount += 1;
+    } else {
+      nonEmptyCount += 1;
+      nonEmptyLengthTotal += value.length;
+      minLength = Math.min(minLength, value.length);
+    }
+
+    maxLength = Math.max(maxLength, value.length);
+
+    if (isNumericLike(value)) {
+      numericCount += 1;
+    }
+  }
+
+  for (const row of state.filteredRows) {
+    const value = String(row[header] || "");
+    visibleValueCounts.set(value, (visibleValueCounts.get(value) || 0) + 1);
+  }
+
+  const topVisibleValues = Array.from(visibleValueCounts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 10)
+    .map(([value, count]) => ({ value, count }));
+
+  return {
+    totalRows,
+    visibleRows,
+    emptyCount,
+    distinctCount: distinctValues.size,
+    numericCount,
+    avgLength: nonEmptyCount ? nonEmptyLengthTotal / nonEmptyCount : 0,
+    minLength: Number.isFinite(minLength) ? minLength : 0,
+    maxLength,
+    topVisibleValues
+  };
+}
+
+function renderTopValuesList(topValues, visibleRows) {
+  columnStatsTopValues.innerHTML = "";
+
+  if (!topValues.length) {
+    const emptyItem = document.createElement("li");
+    emptyItem.className = "column-stats-empty-value";
+    emptyItem.textContent = "No visible values.";
+    columnStatsTopValues.appendChild(emptyItem);
+    return;
+  }
+
+  topValues.forEach(({ value, count }) => {
+    const li = document.createElement("li");
+    const pct = formatStatPercent(count, visibleRows);
+    li.textContent = `${formatTopValueDisplay(value)} - ${formatStatCount(count)} (${pct})`;
+    if (!value.trim()) {
+      li.classList.add("column-stats-empty-value");
+    }
+    columnStatsTopValues.appendChild(li);
+  });
+}
+
+function openColumnStatsOverlay(header) {
+  if (!header || !state.headers.includes(header)) {
+    return;
+  }
+
+  if (!helpOverlay.classList.contains("hidden")) {
+    closeHelpOverlay();
+  }
+  if (!cellOverlay.classList.contains("hidden")) {
+    closeCellOverlay();
+  }
+
+  const stats = computeColumnStats(header);
+  columnStatsTitle.textContent = `Column Stats - ${header}`;
+  columnStatsMeta.textContent = `Visible rows: ${formatStatCount(stats.visibleRows)} of ${formatStatCount(stats.totalRows)} total rows.`;
+  columnStatsTotalRows.textContent = formatStatCount(stats.totalRows);
+  columnStatsVisibleRows.textContent = formatStatCount(stats.visibleRows);
+  columnStatsEmptyValues.textContent = `${formatStatCount(stats.emptyCount)} (${formatStatPercent(stats.emptyCount, stats.totalRows)})`;
+  columnStatsDistinctValues.textContent = formatStatCount(stats.distinctCount);
+  columnStatsNumericValues.textContent = `${formatStatCount(stats.numericCount)} (${formatStatPercent(stats.numericCount, stats.totalRows)})`;
+  columnStatsAvgLength.textContent = stats.avgLength.toFixed(1);
+  columnStatsMinLength.textContent = String(stats.minLength);
+  columnStatsMaxLength.textContent = String(stats.maxLength);
+  renderTopValuesList(stats.topVisibleValues, stats.visibleRows);
+
+  columnStatsOverlay.classList.remove("hidden");
+  columnStatsCloseBtn.focus();
 }
 
 function clampCellOverlayFontSize(size) {
@@ -1106,6 +1476,271 @@ function stringifyCellValue(value) {
   return String(value);
 }
 
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+function isValidDateParts(year, month, day, hour = 0, minute = 0, second = 0) {
+  if (!Number.isInteger(year) || year < 1900 || year > 2500) {
+    return false;
+  }
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    return false;
+  }
+  if (!Number.isInteger(day) || day < 1 || day > daysInMonth(year, month)) {
+    return false;
+  }
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    return false;
+  }
+  if (!Number.isInteger(minute) || minute < 0 || minute > 59) {
+    return false;
+  }
+  if (!Number.isInteger(second) || second < 0 || second > 59) {
+    return false;
+  }
+  return true;
+}
+
+function parseTimestampValue(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return null;
+  }
+
+  // Unix epoch seconds/milliseconds.
+  if (/^-?\d{10}(?:\d{3})?$/.test(text)) {
+    const epoch = Number(text.length === 10 ? `${text}000` : text);
+    return Number.isFinite(epoch) ? epoch : null;
+  }
+
+  // ISO-like forms: yyyy-mm-dd [T ]HH:mm[:ss[.sss]][Z|+00:00].
+  const isoMatch = text.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,6})?)?(Z|[+\-]\d{2}:?\d{2})?)?$/
+  );
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    const hour = Number(isoMatch[4] || 0);
+    const minute = Number(isoMatch[5] || 0);
+    const second = Number(isoMatch[6] || 0);
+    const tz = isoMatch[7] || "";
+
+    if (!isValidDateParts(year, month, day, hour, minute, second)) {
+      return null;
+    }
+
+    if (tz) {
+      const parsed = Date.parse(text.replace(" ", "T"));
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return new Date(year, month - 1, day, hour, minute, second, 0).getTime();
+  }
+
+  // dd/mm/yyyy or dd-mm-yyyy with optional HH:mm[:ss] (local time).
+  const dmyMatch = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (dmyMatch) {
+    const day = Number(dmyMatch[1]);
+    const month = Number(dmyMatch[2]);
+    let year = Number(dmyMatch[3]);
+    const hour = Number(dmyMatch[4] || 0);
+    const minute = Number(dmyMatch[5] || 0);
+    const second = Number(dmyMatch[6] || 0);
+
+    if (year < 100) {
+      year += 2000;
+    }
+
+    if (!isValidDateParts(year, month, day, hour, minute, second)) {
+      return null;
+    }
+
+    return new Date(year, month - 1, day, hour, minute, second, 0).getTime();
+  }
+
+  return null;
+}
+
+function valueLooksLikeDateTime(value) {
+  return parseTimestampValue(value) !== null;
+}
+
+function detectDateTimeHeaders() {
+  const sampleRows = state.rows.slice(0, DATETIME_DETECT_SAMPLE_ROWS);
+  const detected = [];
+
+  state.headers.forEach((header) => {
+    let nonEmpty = 0;
+    let hits = 0;
+
+    for (const row of sampleRows) {
+      const value = String(row[header] || "").trim();
+      if (!value) {
+        continue;
+      }
+      nonEmpty += 1;
+      if (valueLooksLikeDateTime(value)) {
+        hits += 1;
+      }
+    }
+
+    if (nonEmpty < DATETIME_DETECT_MIN_NON_EMPTY) {
+      return;
+    }
+
+    const confidence = hits / nonEmpty;
+    if (confidence >= DATETIME_DETECT_THRESHOLD) {
+      detected.push(header);
+    }
+  });
+
+  state.datetimeHeaders = detected;
+}
+
+function syncTimeWindowColumnWithDetectedHeaders() {
+  if (!state.datetimeHeaders.length) {
+    state.timeWindow.column = "";
+    state.timeWindow.start = "";
+    state.timeWindow.end = "";
+    return;
+  }
+
+  if (!state.datetimeHeaders.includes(state.timeWindow.column)) {
+    state.timeWindow.column = state.datetimeHeaders[0];
+  }
+}
+
+function updateTimeWindowControls() {
+  const hasDateTimeColumns = state.datetimeHeaders.length > 0;
+  timeWindowWrap.classList.toggle("hidden", !(hasDateTimeColumns && state.timeWindow.enabled));
+
+  timeWindowEnabledMenuItem.setAttribute("aria-checked", state.timeWindow.enabled ? "true" : "false");
+
+  if (!hasDateTimeColumns) {
+    timeWindowColumnLabel.textContent = "(no column)";
+    timeWindowStartInput.value = "";
+    timeWindowEndInput.value = "";
+    updateTimeWindowFieldMenu();
+    return;
+  }
+
+  timeWindowColumnLabel.textContent = state.timeWindow.column || "(no column)";
+  timeWindowStartInput.value = state.timeWindow.start;
+  timeWindowEndInput.value = state.timeWindow.end;
+  updateTimeWindowFieldMenu();
+}
+
+function onTimeWindowEnabledMenuItemClick() {
+  state.timeWindow.enabled = !state.timeWindow.enabled;
+  updateTimeWindowControls();
+  applyFilters();
+  renderTable();
+  setStatus(`Time window ${state.timeWindow.enabled ? "enabled" : "disabled"}.`, "ok");
+}
+
+function onTimeWindowFieldMenuClick(event) {
+  const item = event.target.closest("button[data-time-window-column]");
+  if (!item) {
+    return;
+  }
+
+  const nextColumn = item.dataset.timeWindowColumn || "";
+  if (!nextColumn || nextColumn === state.timeWindow.column) {
+    return;
+  }
+
+  state.timeWindow.column = nextColumn;
+  updateTimeWindowControls();
+  applyFilters();
+  renderTable();
+  setStatus(`Time window column set to ${nextColumn}.`, "ok");
+}
+
+function updateTimeWindowFieldMenu() {
+  timeWindowFieldMenu.innerHTML = "";
+
+  if (!state.datetimeHeaders.length) {
+    const disabledItem = document.createElement("button");
+    disabledItem.className = "menu-action";
+    disabledItem.type = "button";
+    disabledItem.disabled = true;
+    disabledItem.textContent = "No datetime columns detected";
+    timeWindowFieldMenu.appendChild(disabledItem);
+    return;
+  }
+
+  state.datetimeHeaders.forEach((header) => {
+    const item = document.createElement("button");
+    item.className = "menu-action";
+    item.type = "button";
+    item.setAttribute("role", "menuitemcheckbox");
+    item.setAttribute("aria-checked", state.timeWindow.column === header ? "true" : "false");
+    item.dataset.timeWindowColumn = header;
+    item.textContent = header;
+    timeWindowFieldMenu.appendChild(item);
+  });
+}
+
+function onTimeWindowInputChange() {
+  state.timeWindow.start = timeWindowStartInput.value || "";
+  state.timeWindow.end = timeWindowEndInput.value || "";
+  applyFilters();
+  renderTable();
+}
+
+function clearTimeWindowFilter() {
+  if (!state.datetimeHeaders.length) {
+    return;
+  }
+
+  state.timeWindow.start = "";
+  state.timeWindow.end = "";
+  timeWindowStartInput.value = "";
+  timeWindowEndInput.value = "";
+  applyFilters();
+  renderTable();
+  setStatus("Time window cleared.", "ok");
+}
+
+function getActiveTimeWindowFilter() {
+  if (!state.timeWindow.enabled || !state.timeWindow.column || (!state.timeWindow.start && !state.timeWindow.end)) {
+    return null;
+  }
+
+  const startMs = state.timeWindow.start ? parseTimestampValue(state.timeWindow.start) : null;
+  const endMs = state.timeWindow.end ? parseTimestampValue(state.timeWindow.end) : null;
+
+  if ((state.timeWindow.start && !Number.isFinite(startMs)) || (state.timeWindow.end && !Number.isFinite(endMs))) {
+    return null;
+  }
+
+  return {
+    column: state.timeWindow.column,
+    startMs: Number.isFinite(startMs) ? startMs : null,
+    endMs: Number.isFinite(endMs) ? endMs : null
+  };
+}
+
+function rowMatchesTimeWindow(row, timeWindow) {
+  const rawValue = row[timeWindow.column];
+  const rowMs = parseTimestampValue(rawValue);
+  if (rowMs === null) {
+    return false;
+  }
+
+  if (timeWindow.startMs !== null && rowMs < timeWindow.startMs) {
+    return false;
+  }
+
+  if (timeWindow.endMs !== null && rowMs > timeWindow.endMs) {
+    return false;
+  }
+
+  return true;
+}
+
 function hydrateState(headers, rows) {
   state.headers = headers;
   state.rows = rows.map((row, index) => ({ ...row, __rowId: String(index), __sourceIndex: index }));
@@ -1118,15 +1753,24 @@ function hydrateState(headers, rows) {
   if (!Number.isFinite(state.rowNumberWidth)) {
     state.rowNumberWidth = 72;
   }
+  detectDateTimeHeaders();
+  syncTimeWindowColumnWithDetectedHeaders();
   globalSearchInput.value = "";
   ensureColumnWidths();
   updateSelectedActionsVisibility();
+  updateTimeWindowControls();
 }
 
 const COL_PX_PER_CHAR = 7.5;
 const COL_MIN_PX = 60;
 const COL_MAX_PX = 380; // ~50 chars
 const COL_SAMPLE_ROWS = 500;
+const SELECTION_COLUMN_WIDTH = 16;
+const COL_HEADER_BASE_PX = 46; // drag + sort controls + resize affordance
+const COL_FILTER_UI_MIN_PX = 156; // keeps operator + filter input readable on first render
+const DATETIME_DETECT_SAMPLE_ROWS = 1200;
+const DATETIME_DETECT_MIN_NON_EMPTY = 30;
+const DATETIME_DETECT_THRESHOLD = 0.82;
 
 function ensureColumnWidths() {
   const next = {};
@@ -1138,19 +1782,37 @@ function ensureColumnWidths() {
       return;
     }
 
-    let maxChars = header.length;
+    let maxDataChars = 0;
     for (const row of sample) {
       const len = (row[header] || "").length;
-      if (len > maxChars) {
-        maxChars = len;
+      if (len > maxDataChars) {
+        maxDataChars = len;
       }
     }
 
-    const raw = Math.ceil(maxChars * COL_PX_PER_CHAR) + 12; // +12 for cell padding
+    const dataWidth = Math.ceil(maxDataChars * COL_PX_PER_CHAR) + 12; // +12 for cell padding
+    const headerWidth = Math.ceil(header.length * COL_PX_PER_CHAR) + COL_HEADER_BASE_PX;
+    const uiWidth = Math.max(COL_MIN_PX, COL_FILTER_UI_MIN_PX);
+    const raw = Math.max(dataWidth, headerWidth, uiWidth);
     next[header] = Math.min(COL_MAX_PX, Math.max(COL_MIN_PX, raw));
   });
 
   state.columnWidths = next;
+}
+
+function syncDataTableWidth(visibleHeaders = getVisibleHeaders()) {
+  if (!dataTable) {
+    return;
+  }
+
+  if (!state.headers.length) {
+    dataTable.style.width = "";
+    return;
+  }
+
+  const totalWidth = visibleHeaders.reduce((sum, header) => sum + (state.columnWidths[header] || COL_MIN_PX), 0);
+  const fullWidth = SELECTION_COLUMN_WIDTH + state.rowNumberWidth + totalWidth;
+  dataTable.style.width = `${Math.max(1, Math.round(fullWidth))}px`;
 }
 
 function clearSelection() {
@@ -1180,6 +1842,8 @@ function resetState() {
   state.fileBuffer = null;
   state.sqliteTables = [];
   state.sqliteTableName = "";
+  state.datetimeHeaders = [];
+  state.timeWindow = { enabled: false, column: "", start: "", end: "" };
   globalSearchInput.value = "";
   findInput.value = "";
   findWrap.classList.add("hidden");
@@ -1188,6 +1852,7 @@ function resetState() {
   renderGroupByChips();
   groupByZone.dataset.dropActive = "false";
   updateSqliteTablePicker();
+  updateTimeWindowControls();
   updateSelectedActionsVisibility();
 }
 
@@ -1836,10 +2501,12 @@ async function renderGroupedView(options = {}, renderPassId = renderState.render
   }
 
   const visibleHeaders = getVisibleHeaders();
+  syncDataTableWidth(visibleHeaders);
 
   const colgroup = document.createElement("colgroup");
   const selectionCol = document.createElement("col");
   selectionCol.className = "selection-col";
+  selectionCol.style.width = `${SELECTION_COLUMN_WIDTH}px`;
   colgroup.appendChild(selectionCol);
 
   const rowNumberCol = document.createElement("col");
@@ -1900,17 +2567,20 @@ async function renderTable(options = {}) {
     tableZone.classList.add("hidden");
     rowCount.textContent = "0";
     columnCount.textContent = "0";
+    dataTable.style.width = "";
     return;
   }
 
   tableZone.classList.remove("hidden");
 
   const visibleHeaders = getVisibleHeaders();
+  syncDataTableWidth(visibleHeaders);
   state.visibleRowIds = state.filteredRows.map((row) => row.__rowId);
 
   const colgroup = document.createElement("colgroup");
   const selectionCol = document.createElement("col");
   selectionCol.className = "selection-col";
+  selectionCol.style.width = `${SELECTION_COLUMN_WIDTH}px`;
   colgroup.appendChild(selectionCol);
 
   const rowNumberCol = document.createElement("col");
@@ -2324,10 +2994,12 @@ function onFilterOperatorChange(event) {
 function applyFilters() {
   const filters = getActiveColumnFilters();
   const globalNeedle = state.globalSearch.trim().toLowerCase();
+  const timeWindow = getActiveTimeWindowFilter();
   const hasColumnFilters = filters.length > 0;
   const hasGlobalSearch = globalNeedle.length > 0;
+  const hasTimeWindow = Boolean(timeWindow);
 
-  if (!hasColumnFilters && !hasGlobalSearch) {
+  if (!hasColumnFilters && !hasGlobalSearch && !hasTimeWindow) {
     state.filteredRows = [...state.rows];
     applySort();
     return;
@@ -2343,13 +3015,23 @@ function applyFilters() {
     }
 
     if (!hasGlobalSearch) {
-      return true;
+      return !hasTimeWindow || rowMatchesTimeWindow(row, timeWindow);
     }
 
-    return state.headers.some((header) => {
+    const globalOk = state.headers.some((header) => {
       const value = (row[header] || "").toLowerCase();
       return value.includes(globalNeedle);
     });
+
+    if (!globalOk) {
+      return false;
+    }
+
+    if (!hasTimeWindow) {
+      return true;
+    }
+
+    return rowMatchesTimeWindow(row, timeWindow);
   });
 
   applySort();
@@ -2440,8 +3122,12 @@ function clearAllFilters() {
   }
   state.filters = {};
   state.globalSearch = "";
+  state.timeWindow.start = "";
+  state.timeWindow.end = "";
   state.hiddenColumns.clear();
   globalSearchInput.value = "";
+  timeWindowStartInput.value = "";
+  timeWindowEndInput.value = "";
   applyFilters();
   renderTable();
   setStatus("All filters cleared.", "ok");
@@ -2876,6 +3562,7 @@ function onColumnResizeMove(event) {
     const nextWidth = Math.max(24, resizeState.startWidth + delta);
     state.rowNumberWidth = nextWidth;
     applyRowNumberWidth(nextWidth);
+    syncDataTableWidth();
     return;
   }
 
@@ -2883,6 +3570,7 @@ function onColumnResizeMove(event) {
 
   state.columnWidths[resizeState.activeHeader] = nextWidth;
   applyColumnWidth(resizeState.activeIndex, nextWidth);
+  syncDataTableWidth();
 }
 
 function onColumnResizeStop() {
