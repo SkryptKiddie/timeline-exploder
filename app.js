@@ -817,7 +817,6 @@ function createTabSnapshotFromState() {
     sort: { ...state.sort },
     firstRowIsHeader: state.firstRowIsHeader,
     showRowNumbers: state.showRowNumbers,
-    theme: state.theme,
     wordWrap: state.wordWrap,
     hideEmptyCols: state.hideEmptyCols,
     virtualizedRendering: state.virtualizedRendering,
@@ -858,7 +857,6 @@ function applyTabSnapshot(snapshot) {
   state.sort = snapshot.sort ? { ...snapshot.sort } : { header: null, direction: null };
   state.firstRowIsHeader = snapshot.firstRowIsHeader !== false;
   state.showRowNumbers = snapshot.showRowNumbers !== false;
-  state.theme = SUPPORTED_THEMES.has(snapshot.theme) ? snapshot.theme : state.theme;
   state.wordWrap = Boolean(snapshot.wordWrap);
   state.hideEmptyCols = Boolean(snapshot.hideEmptyCols);
   state.virtualizedRendering = Boolean(snapshot.virtualizedRendering);
@@ -3075,7 +3073,7 @@ const COL_PX_PER_CHAR = 7.5;
 const COL_MIN_PX = 60;
 const COL_MAX_PX = 380; // ~50 chars
 const COL_SAMPLE_ROWS = 500;
-const SELECTION_COLUMN_WIDTH = 16;
+const SELECTION_COLUMN_WIDTH = 34;
 const COL_HEADER_BASE_PX = 46; // drag + sort controls + resize affordance
 const COL_FILTER_UI_MIN_PX = 156; // keeps operator + filter input readable on first render
 const DATETIME_DETECT_SAMPLE_ROWS = 1200;
@@ -3657,13 +3655,28 @@ function appendDataRow(tbody, row, visibleHeaders) {
 
   const selectTd = document.createElement("td");
   selectTd.className = "selection-cell";
+
+  const selectInner = document.createElement("div");
+  selectInner.className = "selection-cell-inner";
+
+  const rowMenuBtn = document.createElement("button");
+  rowMenuBtn.type = "button";
+  rowMenuBtn.className = "row-menu-trigger";
+  rowMenuBtn.dataset.rowId = row.__rowId;
+  rowMenuBtn.title = "Open row details";
+  rowMenuBtn.textContent = "\u25B8";
+  rowMenuBtn.addEventListener("click", onRowMenuTriggerClick);
+
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.className = "row-checkbox";
   checkbox.checked = state.selectedRowIds.has(row.__rowId);
   checkbox.dataset.rowId = row.__rowId;
   checkbox.addEventListener("change", onRowSelectToggle);
-  selectTd.appendChild(checkbox);
+
+  selectInner.appendChild(rowMenuBtn);
+  selectInner.appendChild(checkbox);
+  selectTd.appendChild(selectInner);
   tr.appendChild(selectTd);
 
   if (state.showRowNumbers) {
@@ -3673,19 +3686,10 @@ function appendDataRow(tbody, row, visibleHeaders) {
     const rowNumberInner = document.createElement("div");
     rowNumberInner.className = "row-number-inner";
 
-    const rowMenuBtn = document.createElement("button");
-    rowMenuBtn.type = "button";
-    rowMenuBtn.className = "row-menu-trigger";
-    rowMenuBtn.dataset.rowId = row.__rowId;
-    rowMenuBtn.title = "Open row details";
-    rowMenuBtn.textContent = "\u25B8";
-    rowMenuBtn.addEventListener("click", onRowMenuTriggerClick);
-
     const rowNumberText = document.createElement("span");
     rowNumberText.className = "row-number-text";
     rowNumberText.textContent = String(row.__sourceIndex + 1);
 
-    rowNumberInner.appendChild(rowMenuBtn);
     rowNumberInner.appendChild(rowNumberText);
     rowNumberTd.appendChild(rowNumberInner);
     tr.appendChild(rowNumberTd);

@@ -505,7 +505,7 @@ body {
   max-height: none;
   overflow: auto;
   border: 1px solid var(--win-border);
-  background: #ffffff;
+  background: #f8fbff;
   color: var(--win-text);
   padding: 10px;
   white-space: pre-wrap;
@@ -935,9 +935,9 @@ body {
 
 .data-table th.selection-col,
 .data-table td.selection-cell {
-  min-width: 16px;
-  max-width: 16px;
-  width: 16px;
+  min-width: 34px;
+  max-width: 34px;
+  width: 34px;
   padding: 0;
   position: sticky;
   left: 0;
@@ -953,7 +953,7 @@ body {
 .data-table th.row-number-col,
 .data-table td.row-number-cell {
   position: sticky;
-  left: 16px;
+  left: 34px;
   z-index: 21;
   white-space: nowrap;
 }
@@ -975,7 +975,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+}
+
+.selection-cell-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
 }
 
 .row-menu-trigger {
@@ -1092,9 +1100,9 @@ body {
 
 .selection-col,
 .selection-cell {
-  width: 16px;
-  min-width: 16px;
-  max-width: 16px;
+  width: 34px;
+  min-width: 34px;
+  max-width: 34px;
   text-align: center;
   padding: 0;
 }
@@ -1477,6 +1485,7 @@ body[data-theme="dark"] .cell-overlay-value {
   color: #e7edf6;
 }
 
+body[data-theme="dark"] .row-details-log,
 body[data-theme="dark"] .row-details-list,
 body[data-theme="dark"] .row-details-value {
   background: #121a26;
@@ -1836,10 +1845,12 @@ body[data-theme="material-light"] .cell-overlay-value {
   border-color: #c3d0d8;
 }
 
+body[data-theme="material-light"] .row-details-log,
 body[data-theme="material-light"] .row-details-list,
 body[data-theme="material-light"] .row-details-value {
   background: #fafdff;
   border-color: #c3d0d8;
+  color: #1f2c3a;
 }
 
 body[data-theme="material-light"] .row-details-key {
@@ -2109,6 +2120,7 @@ body[data-theme="material-dark"] .cell-overlay-value {
   color: #e6edf5;
 }
 
+body[data-theme="material-dark"] .row-details-log,
 body[data-theme="material-dark"] .row-details-list,
 body[data-theme="material-dark"] .row-details-value {
   background: #131b26;
@@ -2225,10 +2237,12 @@ body[data-theme="ios-light"] .column-stats-top-values {
   background: #fbfbfe;
 }
 
+body[data-theme="ios-light"] .row-details-log,
 body[data-theme="ios-light"] .row-details-list,
 body[data-theme="ios-light"] .row-details-value {
   border-color: #d7d9e0;
   background: #fbfbfe;
+  color: #1d1d1f;
 }
 
 body[data-theme="ios-light"] .row-details-key {
@@ -2455,6 +2469,7 @@ body[data-theme="ios-dark"] .column-stats-top-values {
   border-color: #5a6074;
 }
 
+body[data-theme="ios-dark"] .row-details-log,
 body[data-theme="ios-dark"] .row-details-list,
 body[data-theme="ios-dark"] .row-details-value {
   background: #171923;
@@ -2729,6 +2744,7 @@ body[data-theme="neon-party"] .cell-overlay-value {
   color: #f8fbff;
 }
 
+body[data-theme="neon-party"] .row-details-log,
 body[data-theme="neon-party"] .row-details-list,
 body[data-theme="neon-party"] .row-details-value {
   background: #140b2b;
@@ -2794,6 +2810,13 @@ body[data-theme="windows-xp"] {
   font-family: Tahoma, "Segoe UI", sans-serif;
 }
 
+body[data-theme="windows-xp"] .title-strip {
+  background: linear-gradient(180deg, #3f8cf0 0%, #1f66cc 55%, #124ca2 100%);
+  color: #ffffff;
+  border-bottom-color: #0a3f8b;
+  text-shadow: 0 1px 0 rgba(8, 36, 84, 0.55);
+}
+
 body[data-theme="windows-xp"] .menu-bar-wrap,
 body[data-theme="windows-xp"] .controls {
   background: linear-gradient(180deg, #ffffff 0%, #d6d2c4 52%, #c3bfb2 100%);
@@ -2836,9 +2859,18 @@ body[data-theme="windows-xp"] .tool-btn {
   box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #7f7f7f;
 }
 
+body[data-theme="windows-xp"] .tool-btn:hover {
+  background: linear-gradient(180deg, #9de073 0%, #6bc14a 55%, #4b9d33 100%);
+  border-color: #2f7e21;
+  color: #ffffff;
+  text-shadow: 0 1px 0 rgba(29, 83, 22, 0.6);
+}
+
 body[data-theme="windows-xp"] .tool-btn:active {
-  background: #d6d2c4;
-  box-shadow: inset 1px 1px 0 #7f7f7f;
+  background: #4b9d33;
+  border-color: #2f7e21;
+  color: #ffffff;
+  box-shadow: inset 1px 1px 0 #2d6f1f;
 }
 
 body[data-theme="windows-xp"] .advanced-search-input,
@@ -2875,6 +2907,7 @@ body[data-theme="windows-xp"] .file-tab {
 
 body[data-theme="windows-xp"] .file-tab.is-active {
   background: #ffffff;
+  border-top-color: #5fb94a;
 }
 
 body[data-theme="windows-xp"] .table-zone,
@@ -2917,6 +2950,11 @@ body[data-theme="windows-xp"] .group-by-zone {
   background: #d6e8fa;
 }
 
+body[data-theme="windows-xp"] .group-by-zone[data-drop-active="true"] {
+  border-color: #3f9a2d;
+  background: #e4f6db;
+}
+
 body[data-theme="windows-xp"] .group-chip {
   border-color: #316ac5;
   border-radius: 2px;
@@ -2924,7 +2962,25 @@ body[data-theme="windows-xp"] .group-chip {
   color: #000000;
 }
 
+body[data-theme="windows-xp"] .loading-progress-bar {
+  background: linear-gradient(90deg, #3f8cf0 0%, #2f70cf 56%, #6abf44 100%);
+}
+
+body[data-theme="windows-xp"] .advanced-search-wrap.drag-over .advanced-search-input {
+  border-color: #3f9a2d;
+  box-shadow: 0 0 0 2px rgba(106, 191, 68, 0.28);
+}
+
+body[data-theme="windows-xp"] .row-menu-trigger {
+  color: #2f7e21;
+}
+
+body[data-theme="windows-xp"] .row-menu-trigger:hover {
+  color: #1f5f15;
+}
+
 body[data-theme="windows-xp"] .cell-overlay-value,
+body[data-theme="windows-xp"] .row-details-log,
 body[data-theme="windows-xp"] .row-details-list,
 body[data-theme="windows-xp"] .row-details-value,
 body[data-theme="windows-xp"] .column-stats-item,
