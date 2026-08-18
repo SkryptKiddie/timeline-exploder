@@ -163,8 +163,7 @@ const state = {
   expandedGroups: new Set(), // Track which group values are expanded
   pinnedColumns: [], // Ordered list of pinned column headers
   hiddenColumns: new Set(), // Set of hidden column headers
-  rowColorByColumn: "",
-  rowColorValueHues: new Map() // Maps distinct column values to unique hues
+  rowColorByColumn: ""
 };
 
 const resizeState = {
@@ -875,7 +874,6 @@ function applyTabSnapshot(snapshot) {
   state.pinnedColumns = [...(snapshot.pinnedColumns || [])];
   state.hiddenColumns = new Set(snapshot.hiddenColumns || []);
   state.rowColorByColumn = snapshot.rowColorByColumn || "";
-  state.rowColorValueHues = new Map();
   state.filteredRows = [];
   state.visibleRowIds = [];
   state.findMatches = [];
@@ -4281,7 +4279,6 @@ function setRowColorByColumn(header) {
   }
 
   state.rowColorByColumn = header;
-  state.rowColorValueHues = new Map();
   renderTable();
   setStatus(`Row colouring enabled for ${header}.`, "ok");
 }
@@ -4292,23 +4289,19 @@ function clearRowColorByColumn() {
   }
 
   state.rowColorByColumn = "";
-  state.rowColorValueHues = new Map();
   renderTable();
   setStatus("Row colouring cleared.", "ok");
 }
 
-// Golden-angle step spreads hues evenly and avoids repeats until all 360 slots are used
-const GOLDEN_ANGLE_HUE_STEP = 137.508;
+function hashTextToHue(value) {
+  let hash = 0;
+  const text = String(value || "");
 
-function getUniqueHueForValue(value) {
-  if (state.rowColorValueHues.has(value)) {
-    return state.rowColorValueHues.get(value);
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
   }
 
-  const index = state.rowColorValueHues.size;
-  const hue = Math.round((index * GOLDEN_ANGLE_HUE_STEP) % 360);
-  state.rowColorValueHues.set(value, hue);
-  return hue;
+  return hash % 360;
 }
 
 function getRowColorStyleByValue(rawValue) {
@@ -4317,7 +4310,7 @@ function getRowColorStyleByValue(rawValue) {
     return null;
   }
 
-  const hue = getUniqueHueForValue(value);
+  const hue = hashTextToHue(value);
   const isDarkTheme =
     state.theme === "dark" ||
     state.theme === "material-dark" ||

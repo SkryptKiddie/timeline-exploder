@@ -939,6 +939,7 @@ body {
   max-width: 34px;
   width: 34px;
   padding: 0;
+  vertical-align: middle;
   position: sticky;
   left: 0;
   z-index: 27;
@@ -986,20 +987,26 @@ body {
   height: 100%;
 }
 
+.selection-cell-inner > * {
+  flex-shrink: 0;
+}
+
 .row-menu-trigger {
   font: inherit;
-  font-size: 11px;
+  font-size: 16px;
+  font-weight: 900;
   line-height: 1;
   border: 0;
   background: transparent;
   color: inherit;
   cursor: pointer;
   padding: 0;
-  opacity: 0.85;
+  opacity: 0.95;
 }
 
 .row-menu-trigger:hover {
   opacity: 1;
+  color: #1a6fd6;
 }
 
 .row-menu-trigger:focus-visible {
