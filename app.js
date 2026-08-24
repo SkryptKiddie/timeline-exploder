@@ -1982,8 +1982,13 @@ function buildRowLogText(row, rowNumber) {
   }
 
   state.headers.forEach((header) => {
+    const rawValue = row[header];
+    if (rawValue === null || rawValue === undefined || String(rawValue).trim() === "") {
+      return;
+    }
+
     const key = toLogKey(header, usedKeys);
-    const value = toLogValue(row[header]);
+    const value = toLogValue(rawValue);
     parts.push(`${key}=${value}`);
   });
 
