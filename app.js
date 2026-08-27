@@ -2661,33 +2661,66 @@ function persistRowNumberVisibilityPreference(isVisible) {
 }
 
 function parseCsv(text) {
-  if (state.firstRowIsHeader) {
-    const parsed = Papa.parse(text, {
-      header: true,
-      skipEmptyLines: "greedy",
-      dynamicTyping: false,
-      transformHeader: (header) => header.trim()
-    });
-    assertParseErrors(parsed.errors);
-
-    const headers = (parsed.meta.fields || []).map((h, idx) => h || `Column ${idx + 1}`);
-    const rows = parsed.data.map((row) => normalizeObjectRow(row, headers));
-    hydrateState(headers, rows);
-    return;
-  }
-
-  const parsed = Papa.parse(text, {
-    header: false,
-    skipEmptyLines: "greedy",
-    dynamicTyping: false
-  });
-  assertParseErrors(parsed.errors);
-
-  const matrix = parsed.data || [];
+  const matrix = parseCsvMatrix(text);
   const width = matrix.reduce((max, row) => Math.max(max, Array.isArray(row) ? row.length : 0), 0);
-  const headers = Array.from({ length: width }, (_, i) => `Column ${i + 1}`);
+  const headerRow = state.firstRowIsHeader ? matrix.shift() || [] : [];
+  const headers = Array.from(
+    { length: width },
+    (_, index) => String(headerRow[index] || `Column ${index + 1}`).trim() || `Column ${index + 1}`
+  );
   const rows = matrix.map((row) => normalizeArrayRow(Array.isArray(row) ? row : [], headers));
   hydrateState(headers, rows);
+}
+
+function parseCsvMatrix(text) {
+  if (typeof Papa !== "undefined") {
+    const parsed = Papa.parse(text, {
+      header: false,
+      skipEmptyLines: "greedy",
+      dynamicTyping: false
+    });
+    return parsed.data || [];
+  }
+
+  const rows = [];
+  let row = [];
+  let value = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const nextCharacter = text[index + 1];
+
+    if (character === '"') {
+      if (inQuotes && nextCharacter === '"') {
+        value += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (!inQuotes && character === ",") {
+      row.push(value);
+      value = "";
+    } else if (!inQuotes && (character === "\n" || character === "\r")) {
+      if (character === "\r" && nextCharacter === "\n") {
+        index += 1;
+      }
+      row.push(value);
+      if (row.some((cell) => cell.trim())) {
+        rows.push(row);
+      }
+      row = [];
+      value = "";
+    } else {
+      value += character;
+    }
+  }
+
+  row.push(value);
+  if (row.some((cell) => cell.trim())) {
+    rows.push(row);
+  }
+  return rows;
 }
 
 function parseJson(text) {
@@ -2733,7 +2766,8 @@ function assertParseErrors(errors) {
     return;
   }
 
-  const fatalError = errors.find((err) => err.code !== "UndetectableDelimiter");
+  const recoverableErrors = new Set(["UndetectableDelimiter", "TooFewFields", "TooManyFields"]);
+  const fatalError = errors.find((err) => !recoverableErrors.has(err.code));
   if (fatalError) {
     throw new Error(fatalError.message);
   }
