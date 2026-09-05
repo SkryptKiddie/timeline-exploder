@@ -440,11 +440,11 @@ body {
   padding: 12px;
 }
 
-.help-panel-body p {
+.help-panel-body > p {
   margin: 0 0 10px;
 }
 
-.help-panel-body p:last-child {
+.help-panel-body > p:last-child {
   margin-bottom: 0;
 }
 
@@ -515,7 +515,8 @@ body {
   padding: 10px;
   white-space: pre-wrap;
   word-break: break-word;
-  font: 12px/1.45 Consolas, "Courier New", monospace;
+  font: 12px/1.45 "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-weight: 350;
 }
 
 .column-stats-panel {
@@ -537,6 +538,8 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 8px;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-weight: 350;
 }
 
 .column-stats-item {
@@ -560,15 +563,18 @@ body {
 
 .column-stats-top-values {
   margin: 0;
-  padding-left: 22px;
+  padding: 0;
+  list-style-position: inside;
   max-height: min(34vh, 280px);
   overflow: auto;
   border: 1px solid var(--win-border);
   background: #ffffff;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-weight: 350;
 }
 
 .column-stats-top-values li {
-  padding: 5px 8px 5px 4px;
+  padding: 5px 8px;
   border-bottom: 1px solid #e4e4e4;
 }
 
@@ -607,7 +613,8 @@ body {
   background: #ffffff;
   color: var(--win-text);
   padding: 10px;
-  font: 12px/1.45 Consolas, "Courier New", monospace;
+  font: 12px/1.45 "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-weight: 350;
 }
 
 .cell-overlay-controls {
@@ -968,6 +975,11 @@ body {
   min-width: 0;
   table-layout: fixed;
   background: #ffffff;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+.data-table td {
+  font-weight: 350;
 }
 
 .data-table thead {
@@ -1270,6 +1282,7 @@ body {
 .group-by-zone[data-drop-active="true"] {
   border-color: #0078d4;
   background: #e6f1ff;
+  box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2), 0 0 14px rgba(0, 120, 212, 0.3);
 }
 
 .group-by-hint {

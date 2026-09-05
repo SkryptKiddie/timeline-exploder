@@ -65,7 +65,9 @@ const timeWindowEnabledMenuItem = document.getElementById("timeWindowEnabledMenu
 const timeWindowFieldMenu = document.getElementById("timeWindowFieldMenu");
 const clearFiltersMenuItem = document.getElementById("clearFiltersMenuItem");
 const copySelectedMenuItem = document.getElementById("copySelectedMenuItem");
+const copySelectedHtmlMenuItem = document.getElementById("copySelectedHtmlMenuItem");
 const copyVisibleMenuItem = document.getElementById("copyVisibleMenuItem");
+const copyVisibleHtmlMenuItem = document.getElementById("copyVisibleHtmlMenuItem");
 const hideEmptyColsMenuItem = document.getElementById("hideEmptyColsMenuItem");
 const virtualizedRenderMenuItem = document.getElementById("virtualizedRenderMenuItem");
 const findWrap = document.getElementById("findWrap");
@@ -87,6 +89,7 @@ const contextMenuClearRowColor = document.getElementById("contextMenuClearRowCol
 const contextMenuHide = document.getElementById("contextMenuHide");
 const fieldContextMenu = document.getElementById("fieldContextMenu");
 const fieldMenuViewRow = document.getElementById("fieldMenuViewRow");
+const fieldMenuCopySelectedHtml = document.getElementById("fieldMenuCopySelectedHtml");
 const fieldMenuCopyValue = document.getElementById("fieldMenuCopyValue");
 const fieldMenuCopyCell = document.getElementById("fieldMenuCopyCell");
 const fieldMenuFilterEquals = document.getElementById("fieldMenuFilterEquals");
@@ -178,6 +181,7 @@ const colDragState = {
   fromIndex: -1,
   toIndex: -1,
   ghostEl: null,
+  insideDropZone: false,
   indicatorEl: null,
   autoScrollRaf: null,
   lastClientX: 0
@@ -188,7 +192,7 @@ const groupDragState = {
   header: null,
   ghostEl: null,
   insideDropZone: false,
-  toVisibleIndex: -1,
+  toIndex: -1,
   indicatorEl: null,
   autoScrollRaf: null,
   lastClientX: 0
@@ -1307,9 +1311,19 @@ copySelectedMenuItem.addEventListener("click", () => {
   copySelectedRows();
 });
 
+copySelectedHtmlMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  copySelectedRowsAsHtml();
+});
+
 copyVisibleMenuItem.addEventListener("click", () => {
   closeAllMenus();
   copyVisibleRows();
+});
+
+copyVisibleHtmlMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  copyVisibleRowsAsHtml();
 });
 
 firstRowHeaderMenuItem.addEventListener("click", () => {
@@ -1340,6 +1354,11 @@ timeWindowFieldMenu.addEventListener("click", onTimeWindowFieldMenuClick);
 
 fieldMenuViewRow.addEventListener("click", () => {
   openRowDetailsFromFieldContext();
+});
+
+fieldMenuCopySelectedHtml.addEventListener("click", () => {
+  hideFieldContextMenu();
+  copySelectedRowsAsHtml();
 });
 
 fieldMenuCopyValue.addEventListener("click", () => {
@@ -2661,6 +2680,7 @@ function showFieldContextMenu({ header, rowId, value }, clientX, clientY) {
   fieldMenuCopyValue.textContent = "Copy Value";
   fieldMenuCopyCell.textContent = "Copy Cell";
   fieldMenuViewRow.textContent = "View Row Details";
+  fieldMenuCopySelectedHtml.classList.toggle("hidden", state.selectedRowIds.size === 0);
   fieldMenuFilterEquals.textContent = `Filter: ${header} = this value`;
   fieldMenuFilterNotEquals.textContent = `Filter: ${header} != this value`;
   fieldMenuVirusTotal.textContent = `VirusTotal Lookup for ${header}`;
@@ -3331,13 +3351,13 @@ function hydrateState(headers, rows) {
   updateTimeWindowControls();
 }
 
-const COL_PX_PER_CHAR = 7.5;
+const COL_PX_PER_CHAR = 8;
 const COL_MIN_PX = 60;
 const COL_MAX_PX = 380; // ~50 chars
 const COL_SAMPLE_ROWS = 500;
 const SELECTION_COLUMN_WIDTH = 34;
 const COL_HEADER_BASE_PX = 46; // drag + sort controls + resize affordance
-const COL_FILTER_UI_MIN_PX = 156; // keeps operator + filter input readable on first render
+const COL_FILTER_UI_MIN_PX = 168; // keeps operator + filter input readable with Cascadia Mono
 const DATETIME_DETECT_SAMPLE_ROWS = 1200;
 const DATETIME_DETECT_MIN_NON_EMPTY = 30;
 const DATETIME_DETECT_THRESHOLD = 0.82;
@@ -3877,7 +3897,6 @@ function appendTableHeader(thead, visibleHeaders) {
     title.className = "col-title";
     title.textContent = header;
     title.dataset.header = header;
-    title.title = dragInstruction;
     title.draggable = true;
     title.title = "Drag into Group By or Advanced Search";
     title.addEventListener("mousedown", (event) => event.stopPropagation());
@@ -5113,6 +5132,7 @@ function updateSelectedActionsVisibility() {
   const hasSelection = state.selectedRowIds.size > 0;
   copySelectedBtn.classList.toggle("hidden", !hasSelection);
   copySelectedMenuItem.classList.toggle("hidden", !hasSelection);
+  copySelectedHtmlMenuItem.classList.toggle("hidden", !hasSelection);
 }
 
 function onToggleGroupExpand(groupId) {
@@ -5157,121 +5177,28 @@ function updateHeaderDropClasses(ths, toIndex, hoverIndex = -1) {
   }
 }
 
-function onGroupDragStart(event) {
-  if (event.button !== 0 || colDragState.active || resizeState.activeHeader) {
-    return;
-  }
-
-  const blocked = event.target.closest(".col-drag-handle, .col-sort-btn, .filter-input, .filter-operator, .resize-handle, input, button, select");
-  if (blocked) {
-    return;
-  }
-
-  const header = event.currentTarget.dataset.header;
-  if (!header) {
-    return;
-  }
-
-  event.preventDefault();
-  event.stopPropagation();
-
-  clearHeaderDragClasses();
-  groupDragState.active = true;
-  groupDragState.header = header;
-  groupDragState.insideDropZone = false;
-  groupDragState.toVisibleIndex = -1;
-
+function createColumnDragGhost(header, clientX, clientY) {
   const ghost = document.createElement("div");
   ghost.className = "col-drag-ghost";
   ghost.innerHTML = `<span class="col-drag-ghost-icon">⋮⋮</span><span>${header}</span>`;
   document.body.appendChild(ghost);
-  groupDragState.ghostEl = ghost;
-
-  const th = dataTable.querySelector(`thead th[data-header="${CSS.escape(header)}"]`);
-  if (th) {
-    th.classList.add("is-dragging");
-  }
-
-  const indicator = document.createElement("div");
-  indicator.className = "col-drop-indicator";
-  document.body.appendChild(indicator);
-  groupDragState.indicatorEl = indicator;
-
-  positionGroupDragGhost(event.clientX, event.clientY);
-  groupDragState.lastClientX = event.clientX;
-  updateHeaderReorderIndicator(event.clientX);
-  startHeaderDragAutoScroll();
-  document.body.style.cursor = "grabbing";
-  document.body.style.userSelect = "none";
+  positionColumnDragGhost(ghost, clientX, clientY);
+  return ghost;
 }
 
-function onGroupDragMove(event) {
-  if (!groupDragState.active) {
+function positionColumnDragGhost(ghost, clientX, clientY) {
+  if (!ghost) {
     return;
   }
 
-  positionGroupDragGhost(event.clientX, event.clientY);
-  groupDragState.lastClientX = event.clientX;
-
-  const zoneRect = groupByZone.getBoundingClientRect();
-  const inside =
-    event.clientX >= zoneRect.left - HEADER_DRAG_DROP_RADIUS &&
-    event.clientX <= zoneRect.right + HEADER_DRAG_DROP_RADIUS &&
-    event.clientY >= zoneRect.top - HEADER_DRAG_DROP_RADIUS &&
-    event.clientY <= zoneRect.bottom + HEADER_DRAG_DROP_RADIUS;
-
-  groupDragState.insideDropZone = inside;
-  groupByZone.dataset.dropActive = inside ? "true" : "false";
-
-  if (inside) {
-    hideHeaderReorderIndicator();
-  } else {
-    updateHeaderReorderIndicator(event.clientX);
-  }
+  ghost.style.left = `${clientX}px`;
+  ghost.style.top = `${clientY}px`;
 }
 
-function onGroupDragEnd() {
-  if (!groupDragState.active) {
-    return;
-  }
-
-  clearHeaderDragClasses();
-
-  if (groupDragState.insideDropZone && groupDragState.header && state.headers.includes(groupDragState.header)) {
-    if (!state.groupByColumns.includes(groupDragState.header)) {
-      state.groupByColumns.push(groupDragState.header);
-    }
-    state.expandedGroups.clear();
-    renderGroupByChips();
-    renderTable();
-  } else {
-    reorderColumnsFromHeaderDrag();
-  }
-
-  if (groupDragState.ghostEl) {
-    groupDragState.ghostEl.remove();
-    groupDragState.ghostEl = null;
-  }
-
-  if (groupDragState.indicatorEl) {
-    groupDragState.indicatorEl.remove();
-    groupDragState.indicatorEl = null;
-  }
-
-  stopHeaderDragAutoScroll();
-
-  groupDragState.active = false;
-  groupDragState.header = null;
-  groupDragState.insideDropZone = false;
-  groupDragState.toVisibleIndex = -1;
-  groupByZone.dataset.dropActive = "false";
-  document.body.style.cursor = "";
-  document.body.style.userSelect = "";
-}
-
-function updateHeaderReorderIndicator(clientX) {
+function updateColumnReorderIndicator(dragState, clientX) {
+  dragState.lastClientX = clientX;
   const ths = Array.from(dataTable.querySelectorAll("thead th[data-header]"));
-  if (!ths.length || !groupDragState.indicatorEl) {
+  if (!ths.length || !dragState.indicatorEl) {
     return;
   }
 
@@ -5308,33 +5235,30 @@ function updateHeaderReorderIndicator(clientX) {
     indicatorX = ths[ths.length - 1].getBoundingClientRect().right;
   }
 
-  groupDragState.toVisibleIndex = toIndex;
+  dragState.toIndex = toIndex;
   updateHeaderDropClasses(ths, toIndex, hoverIndex);
 
   const headerRow = dataTable.querySelector("thead tr");
   const headerRect = headerRow ? headerRow.getBoundingClientRect() : dataTable.getBoundingClientRect();
-  groupDragState.indicatorEl.style.left = `${indicatorX}px`;
-  groupDragState.indicatorEl.style.top = `${headerRect.top}px`;
-  groupDragState.indicatorEl.style.height = `${headerRect.height}px`;
-  groupDragState.indicatorEl.style.display = "block";
+  dragState.indicatorEl.style.left = `${indicatorX}px`;
+  dragState.indicatorEl.style.top = `${headerRect.top}px`;
+  dragState.indicatorEl.style.height = `${headerRect.height}px`;
+  dragState.indicatorEl.style.display = "block";
 }
 
-function hideHeaderReorderIndicator() {
-  if (groupDragState.indicatorEl) {
-    groupDragState.indicatorEl.style.display = "none";
+function hideColumnReorderIndicator(dragState) {
+  if (dragState.indicatorEl) {
+    dragState.indicatorEl.style.display = "none";
   }
-  const ths = dataTable.querySelectorAll("thead th[data-header]");
-  ths.forEach((th) => {
-    th.classList.remove("drag-drop-before", "drag-drop-after", "drop-target-left", "drop-target-right");
-  });
+  clearHeaderDragClasses();
 }
 
-function startHeaderDragAutoScroll() {
-  stopHeaderDragAutoScroll();
+function startColumnDragAutoScroll(dragState) {
+  stopColumnDragAutoScroll(dragState);
 
   const step = () => {
-    if (!groupDragState.active || !tableScroll) {
-      groupDragState.autoScrollRaf = null;
+    if (!dragState.active || !tableScroll) {
+      dragState.autoScrollRaf = null;
       return;
     }
 
@@ -5343,43 +5267,151 @@ function startHeaderDragAutoScroll() {
     const maxStep = 22;
     let delta = 0;
 
-    if (groupDragState.lastClientX < rect.left + threshold) {
-      const distance = rect.left + threshold - groupDragState.lastClientX;
-      const factor = Math.min(1, distance / threshold);
-      delta = -Math.ceil(factor * maxStep);
-    } else if (groupDragState.lastClientX > rect.right - threshold) {
-      const distance = groupDragState.lastClientX - (rect.right - threshold);
-      const factor = Math.min(1, distance / threshold);
-      delta = Math.ceil(factor * maxStep);
+    if (dragState.lastClientX < rect.left + threshold) {
+      const distance = rect.left + threshold - dragState.lastClientX;
+      delta = -Math.ceil(Math.min(1, distance / threshold) * maxStep);
+    } else if (dragState.lastClientX > rect.right - threshold) {
+      const distance = dragState.lastClientX - (rect.right - threshold);
+      delta = Math.ceil(Math.min(1, distance / threshold) * maxStep);
     }
 
     if (delta !== 0) {
       const previous = tableScroll.scrollLeft;
       tableScroll.scrollLeft += delta;
-
-      if (tableScroll.scrollLeft !== previous) {
-        if (!groupDragState.insideDropZone) {
-          updateHeaderReorderIndicator(groupDragState.lastClientX);
-        }
+      if (tableScroll.scrollLeft !== previous && !dragState.insideDropZone) {
+        updateColumnReorderIndicator(dragState, dragState.lastClientX);
       }
     }
 
-    groupDragState.autoScrollRaf = requestAnimationFrame(step);
+    dragState.autoScrollRaf = requestAnimationFrame(step);
   };
 
-  groupDragState.autoScrollRaf = requestAnimationFrame(step);
+  dragState.autoScrollRaf = requestAnimationFrame(step);
 }
 
-function stopHeaderDragAutoScroll() {
-  if (groupDragState.autoScrollRaf) {
-    cancelAnimationFrame(groupDragState.autoScrollRaf);
-    groupDragState.autoScrollRaf = null;
+function stopColumnDragAutoScroll(dragState) {
+  if (dragState.autoScrollRaf) {
+    cancelAnimationFrame(dragState.autoScrollRaf);
+    dragState.autoScrollRaf = null;
   }
+}
+
+function onGroupDragStart(event) {
+  if (event.button !== 0 || colDragState.active || resizeState.activeHeader) {
+    return;
+  }
+
+  const blocked = event.target.closest(".col-drag-handle, .col-sort-btn, .filter-input, .filter-operator, .resize-handle, input, button, select");
+  if (blocked) {
+    return;
+  }
+
+  const header = event.currentTarget.dataset.header;
+  if (!header) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  clearHeaderDragClasses();
+  groupDragState.active = true;
+  groupDragState.header = header;
+  groupDragState.insideDropZone = false;
+  groupDragState.toIndex = -1;
+
+  groupDragState.ghostEl = createColumnDragGhost(header, event.clientX, event.clientY);
+
+  const th = dataTable.querySelector(`thead th[data-header="${CSS.escape(header)}"]`);
+  if (th) {
+    th.classList.add("is-dragging");
+  }
+
+  const indicator = document.createElement("div");
+  indicator.className = "col-drop-indicator";
+  document.body.appendChild(indicator);
+  groupDragState.indicatorEl = indicator;
+
+  groupDragState.lastClientX = event.clientX;
+  updateColumnReorderIndicator(groupDragState, event.clientX);
+  startColumnDragAutoScroll(groupDragState);
+  document.body.style.cursor = "grabbing";
+  document.body.style.userSelect = "none";
+}
+
+function isInsideGroupDropZone(clientX, clientY) {
+  const zoneRect = groupByZone.getBoundingClientRect();
+  return (
+    clientX >= zoneRect.left - HEADER_DRAG_DROP_RADIUS &&
+    clientX <= zoneRect.right + HEADER_DRAG_DROP_RADIUS &&
+    clientY >= zoneRect.top - HEADER_DRAG_DROP_RADIUS &&
+    clientY <= zoneRect.bottom + HEADER_DRAG_DROP_RADIUS
+  );
+}
+
+function onGroupDragMove(event) {
+  if (!groupDragState.active) {
+    return;
+  }
+
+  positionColumnDragGhost(groupDragState.ghostEl, event.clientX, event.clientY);
+  groupDragState.lastClientX = event.clientX;
+
+  const inside = isInsideGroupDropZone(event.clientX, event.clientY);
+
+  groupDragState.insideDropZone = inside;
+  groupByZone.dataset.dropActive = inside ? "true" : "false";
+
+  if (inside) {
+    hideColumnReorderIndicator(groupDragState);
+  } else {
+    updateColumnReorderIndicator(groupDragState, event.clientX);
+  }
+}
+
+function onGroupDragEnd(event) {
+  if (!groupDragState.active) {
+    return;
+  }
+
+  onGroupDragMove(event);
+  clearHeaderDragClasses();
+
+  if (groupDragState.insideDropZone && groupDragState.header && state.headers.includes(groupDragState.header)) {
+    if (!state.groupByColumns.includes(groupDragState.header)) {
+      state.groupByColumns.push(groupDragState.header);
+    }
+    state.expandedGroups.clear();
+    renderGroupByChips();
+    renderTable();
+  } else {
+    reorderColumnsFromHeaderDrag();
+  }
+
+  if (groupDragState.ghostEl) {
+    groupDragState.ghostEl.remove();
+    groupDragState.ghostEl = null;
+  }
+
+  if (groupDragState.indicatorEl) {
+    groupDragState.indicatorEl.remove();
+    groupDragState.indicatorEl = null;
+  }
+
+  stopColumnDragAutoScroll(groupDragState);
+
+  groupDragState.active = false;
+  groupDragState.header = null;
+  groupDragState.insideDropZone = false;
+  groupDragState.toIndex = -1;
+  groupByZone.dataset.dropActive = "false";
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
 }
 
 function reorderColumnsFromHeaderDrag() {
   const draggedHeader = groupDragState.header;
-  const toVisibleIndex = groupDragState.toVisibleIndex;
+  const toVisibleIndex = groupDragState.toIndex;
 
   applyColumnReorder(draggedHeader, toVisibleIndex);
 }
@@ -5477,15 +5509,6 @@ function onGroupListDrop(event) {
   finishGroupChipReorder();
 }
 
-function positionGroupDragGhost(clientX, clientY) {
-  if (!groupDragState.ghostEl) {
-    return;
-  }
-
-  groupDragState.ghostEl.style.left = `${clientX}px`;
-  groupDragState.ghostEl.style.top = `${clientY}px`;
-}
-
 function copySelectedRows() {
   const rows = getSelectedRows();
   if (!rows.length) {
@@ -5493,6 +5516,15 @@ function copySelectedRows() {
     return;
   }
   copyRowsPlain(rows, "selected", false);
+}
+
+function copySelectedRowsAsHtml() {
+  const rows = getSelectedRows();
+  if (!rows.length) {
+    setStatus("No rows selected.", "warn");
+    return;
+  }
+  copyRowsAsHtml(rows, "selected");
 }
 
 function copyVisibleRows() {
@@ -5507,6 +5539,18 @@ function copyVisibleRows() {
   copyRowsPlain(state.filteredRows, "visible");
 }
 
+function copyVisibleRowsAsHtml() {
+  if (!state.headers.length) {
+    setStatus("Nothing to copy yet. Upload data first.", "warn");
+    return;
+  }
+  if (!state.filteredRows.length) {
+    setStatus("No rows match your current filters.", "warn");
+    return;
+  }
+  copyRowsAsHtml(state.filteredRows, "visible");
+}
+
 async function copyRowsPlain(rows, sourceLabel, includeHeaders = true) {
   const text = includeHeaders ? toTsv(state.headers, rows) : toTsvValuesOnly(state.headers, rows);
   try {
@@ -5517,6 +5561,39 @@ async function copyRowsPlain(rows, sourceLabel, includeHeaders = true) {
     fallbackCopy(text);
     setStatus("Clipboard API blocked, copied plain text via fallback.", "warn");
   }
+}
+
+async function copyRowsAsHtml(rows, sourceLabel) {
+  const text = toTsv(state.headers, rows);
+  const html = toHtmlTable(state.headers, rows);
+
+  try {
+    if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+      throw new Error("Rich clipboard support is unavailable.");
+    }
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([text], { type: "text/plain" })
+      })
+    ]);
+    setStatus(`Copied ${rows.length} ${sourceLabel} row${rows.length === 1 ? "" : "s"} as HTML.`, "ok");
+  } catch (error) {
+    console.error(error);
+    fallbackCopy(text);
+    setStatus("Rich clipboard access blocked, copied plain text instead.", "warn");
+  }
+}
+
+function toHtmlTable(headers, rows) {
+  const tableStyle = "border-collapse:collapse;font-family:Consolas,'Courier New',monospace;font-size:12px";
+  const headerStyle = "border:1px solid #b7c6d9;background:#eaf2fb;color:#172b4d;padding:6px 8px;text-align:left;font-weight:600";
+  const cellStyle = "border:1px solid #d5dde8;padding:5px 8px;text-align:left;vertical-align:top;white-space:pre-wrap";
+  const head = headers.map((header) => `<th style="${headerStyle}">${escapeHtml(header)}</th>`).join("");
+  const body = rows
+    .map((row) => `<tr>${headers.map((header) => `<td style="${cellStyle}">${escapeHtml(String(row[header] || ""))}</td>`).join("")}</tr>`)
+    .join("");
+  return `<table style="${tableStyle}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
 function toTsv(headers, rows) {
@@ -5572,8 +5649,17 @@ function onColumnResizeStart(event) {
 
 function onColumnResizeMove(event) {
   if (colDragState.active) {
-    positionColDragGhost(event.clientX, event.clientY);
-    updateColDragIndicator(event.clientX);
+    positionColumnDragGhost(colDragState.ghostEl, event.clientX, event.clientY);
+    const inside = isInsideGroupDropZone(event.clientX, event.clientY);
+    colDragState.insideDropZone = inside;
+    groupByZone.dataset.dropActive = inside ? "true" : "false";
+    if (inside) {
+      if (colDragState.indicatorEl) {
+        colDragState.indicatorEl.style.display = "none";
+      }
+    } else {
+      updateColumnReorderIndicator(colDragState, event.clientX);
+    }
     return;
   }
 
@@ -5598,9 +5684,9 @@ function onColumnResizeMove(event) {
   syncDataTableWidth();
 }
 
-function onColumnResizeStop() {
+function onColumnResizeStop(event) {
   if (colDragState.active) {
-    finishColDrag();
+    finishColDrag(event);
     return;
   }
 
@@ -5627,6 +5713,7 @@ function onColDragStart(event) {
   colDragState.active = true;
   colDragState.fromIndex = idx;
   colDragState.toIndex = idx;
+  colDragState.insideDropZone = false;
   colDragState.lastClientX = event.clientX;
 
   const header = state.headers[idx];
@@ -5636,12 +5723,7 @@ function onColDragStart(event) {
       th.classList.add("is-dragging");
     }
 
-    const ghost = document.createElement("div");
-    ghost.className = "col-drag-ghost";
-    ghost.innerHTML = `<span class="col-drag-ghost-icon">⋮⋮</span><span>${header}</span>`;
-    document.body.appendChild(ghost);
-    colDragState.ghostEl = ghost;
-    positionColDragGhost(event.clientX, event.clientY);
+    colDragState.ghostEl = createColumnDragGhost(header, event.clientX, event.clientY);
   }
 
   const indicator = document.createElement("div");
@@ -5649,72 +5731,21 @@ function onColDragStart(event) {
   document.body.appendChild(indicator);
   colDragState.indicatorEl = indicator;
 
-  startColDragAutoScroll();
-  updateColDragIndicator(event.clientX);
+  startColumnDragAutoScroll(colDragState);
+  updateColumnReorderIndicator(colDragState, event.clientX);
 
   document.body.style.cursor = "grabbing";
   document.body.style.userSelect = "none";
 }
 
-function updateColDragIndicator(clientX) {
-  colDragState.lastClientX = clientX;
+function finishColDrag(event) {
+  const { fromIndex, toIndex, insideDropZone } = colDragState;
+  const draggedHeader = state.headers[fromIndex];
+  const droppedInGroupZone = event
+    ? isInsideGroupDropZone(event.clientX, event.clientY)
+    : insideDropZone;
 
-  const ths = Array.from(dataTable.querySelectorAll("thead th[data-header]"));
-  if (!ths.length) {
-    return;
-  }
-
-  let toIndex = ths.length;
-  let hoverIndex = -1;
-  let indicatorX = ths[ths.length - 1].getBoundingClientRect().right;
-
-  for (let i = 0; i < ths.length; i++) {
-    const rect = ths[i].getBoundingClientRect();
-    if (clientX >= rect.left - HEADER_DRAG_DROP_RADIUS && clientX <= rect.right + HEADER_DRAG_DROP_RADIUS) {
-      hoverIndex = i;
-      const mid = rect.left + rect.width / 2;
-      if (clientX <= mid) {
-        toIndex = i;
-        indicatorX = rect.left;
-      } else {
-        toIndex = i + 1;
-        indicatorX = rect.right;
-      }
-      break;
-    } else if (clientX < rect.left) {
-      if (i === 0) {
-        toIndex = 0;
-        hoverIndex = 0;
-        indicatorX = rect.left;
-      }
-      break;
-    }
-  }
-
-  if (hoverIndex === -1 && clientX > ths[ths.length - 1].getBoundingClientRect().right) {
-    toIndex = ths.length;
-    hoverIndex = ths.length - 1;
-    indicatorX = ths[ths.length - 1].getBoundingClientRect().right;
-  }
-
-  colDragState.toIndex = toIndex;
-  updateHeaderDropClasses(ths, toIndex, hoverIndex);
-
-  const el = colDragState.indicatorEl;
-  if (el) {
-    const headerRow = dataTable.querySelector("thead tr");
-    const headerRect = headerRow ? headerRow.getBoundingClientRect() : dataTable.getBoundingClientRect();
-    el.style.left = `${indicatorX}px`;
-    el.style.top = `${headerRect.top}px`;
-    el.style.height = `${headerRect.height}px`;
-    el.style.display = "block";
-  }
-}
-
-function finishColDrag() {
-  const { fromIndex, toIndex } = colDragState;
-
-  stopColDragAutoScroll();
+  stopColumnDragAutoScroll(colDragState);
 
   clearHeaderDragClasses();
 
@@ -5731,70 +5762,26 @@ function finishColDrag() {
   colDragState.active = false;
   colDragState.fromIndex = -1;
   colDragState.toIndex = -1;
+  colDragState.insideDropZone = false;
+  groupByZone.dataset.dropActive = "false";
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
 
-  if (fromIndex < 0) {
+  if (fromIndex < 0 || !draggedHeader) {
     return;
   }
 
-  const draggedHeader = state.headers[fromIndex];
+  if (droppedInGroupZone) {
+    if (!state.groupByColumns.includes(draggedHeader)) {
+      state.groupByColumns.push(draggedHeader);
+      state.expandedGroups.clear();
+      renderGroupByChips();
+      renderTable();
+    }
+    return;
+  }
+
   applyColumnReorder(draggedHeader, toIndex);
-}
-
-function positionColDragGhost(clientX, clientY) {
-  if (!colDragState.ghostEl) {
-    return;
-  }
-
-  colDragState.ghostEl.style.left = `${clientX}px`;
-  colDragState.ghostEl.style.top = `${clientY}px`;
-}
-
-function startColDragAutoScroll() {
-  stopColDragAutoScroll();
-
-  const step = () => {
-    if (!colDragState.active || !tableScroll) {
-      colDragState.autoScrollRaf = null;
-      return;
-    }
-
-    const rect = tableScroll.getBoundingClientRect();
-    const threshold = 44;
-    const maxStep = 22;
-    let delta = 0;
-
-    if (colDragState.lastClientX < rect.left + threshold) {
-      const distance = rect.left + threshold - colDragState.lastClientX;
-      const factor = Math.min(1, distance / threshold);
-      delta = -Math.ceil(factor * maxStep);
-    } else if (colDragState.lastClientX > rect.right - threshold) {
-      const distance = colDragState.lastClientX - (rect.right - threshold);
-      const factor = Math.min(1, distance / threshold);
-      delta = Math.ceil(factor * maxStep);
-    }
-
-    if (delta !== 0) {
-      const previous = tableScroll.scrollLeft;
-      tableScroll.scrollLeft += delta;
-
-      if (tableScroll.scrollLeft !== previous) {
-        updateColDragIndicator(colDragState.lastClientX);
-      }
-    }
-
-    colDragState.autoScrollRaf = requestAnimationFrame(step);
-  };
-
-  colDragState.autoScrollRaf = requestAnimationFrame(step);
-}
-
-function stopColDragAutoScroll() {
-  if (colDragState.autoScrollRaf) {
-    cancelAnimationFrame(colDragState.autoScrollRaf);
-    colDragState.autoScrollRaf = null;
-  }
 }
 
 function applyColumnWidth(columnIndex, width) {
