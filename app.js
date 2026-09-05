@@ -229,6 +229,14 @@ const tabsState = {
   nextTabId: 1
 };
 
+const tabDragState = {
+  active: false,
+  draggedTabId: null,
+  draggedIndex: -1,
+  targetIndex: -1,
+  targetPosition: null
+};
+
 const RENDER_BATCH_SIZE = 350;
 const RENDER_PROGRESS_MIN_ROWS = 1200;
 const AUTO_VIRTUALIZE_THRESHOLD_BYTES = 1024 * 1024;
@@ -240,10 +248,10 @@ const FILE_TAB_LABEL_MAX = 28;
 const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "ios-light", "ios-dark", "neon-party", "windows-xp"]);
 const ADVANCED_FIELD_DRAG_MIME = "application/x-timeline-exploder-header";
 const THEME_LABELS = {
-  light: "Classic Light",
-  dark: "Classic Dark",
   "material-light": "Material Light",
   "material-dark": "Material Dark",
+  light: "Classic Light",
+  dark: "Classic Dark",
   "ios-light": "iOS Light",
   "ios-dark": "iOS Dark",
   "neon-party": "Neon",
@@ -949,11 +957,20 @@ function renderFileTabs() {
   fileTabs.innerHTML = "";
   fileTabs.classList.toggle("hidden", tabsState.tabs.length === 0);
 
-  tabsState.tabs.forEach((tab) => {
+  tabsState.tabs.forEach((tab, index) => {
     const tabWrap = document.createElement("div");
     tabWrap.className = `file-tab${tab.id === tabsState.activeTabId ? " is-active" : ""}`;
     tabWrap.setAttribute("role", "presentation");
+    tabWrap.setAttribute("draggable", "true");
     tabWrap.title = tab.title;
+    tabWrap.dataset.tabId = String(tab.id);
+    tabWrap.dataset.tabIndex = String(index);
+
+    tabWrap.addEventListener("dragstart", onTabDragStart);
+    tabWrap.addEventListener("dragover", onTabDragOver);
+    tabWrap.addEventListener("dragleave", onTabDragLeave);
+    tabWrap.addEventListener("drop", onTabDrop);
+    tabWrap.addEventListener("dragend", onTabDragEnd);
 
     const tabBtn = document.createElement("button");
     tabBtn.type = "button";
@@ -973,10 +990,173 @@ function renderFileTabs() {
     closeBtn.setAttribute("aria-label", `Close ${tab.title}`);
     closeBtn.dataset.tabClose = String(tab.id);
     closeBtn.textContent = "×";
+    closeBtn.setAttribute("draggable", "false");
+
     tabWrap.appendChild(tabBtn);
     tabWrap.appendChild(closeBtn);
     fileTabs.appendChild(tabWrap);
   });
+}
+
+function clearTabDragClasses() {
+  if (!fileTabs) {
+    return;
+  }
+  const tabs = fileTabs.querySelectorAll(".file-tab");
+  tabs.forEach((t) => {
+    t.classList.remove("is-dragging", "drag-drop-before", "drag-drop-after");
+  });
+}
+
+function onTabDragStart(event) {
+  const tabWrap = event.currentTarget;
+  const tabId = Number(tabWrap.dataset.tabId);
+  const index = Number(tabWrap.dataset.tabIndex);
+  if (Number.isNaN(tabId) || Number.isNaN(index)) {
+    return;
+  }
+
+  tabDragState.active = true;
+  tabDragState.draggedTabId = tabId;
+  tabDragState.draggedIndex = index;
+  tabDragState.targetIndex = index;
+  tabDragState.targetPosition = null;
+
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", String(tabId));
+
+  setTimeout(() => {
+    if (tabDragState.active && tabWrap) {
+      tabWrap.classList.add("is-dragging");
+    }
+  }, 0);
+}
+
+function onTabDragOver(event) {
+  if (!tabDragState.active) {
+    return;
+  }
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+
+  const targetTabWrap = event.currentTarget;
+  const targetIndex = Number(targetTabWrap.dataset.tabIndex);
+  if (Number.isNaN(targetIndex)) {
+    return;
+  }
+
+  if (fileTabs) {
+    const containerRect = fileTabs.getBoundingClientRect();
+    if (event.clientX < containerRect.left + 36) {
+      fileTabs.scrollLeft -= 10;
+    } else if (event.clientX > containerRect.right - 36) {
+      fileTabs.scrollLeft += 10;
+    }
+  }
+
+  const rect = targetTabWrap.getBoundingClientRect();
+  const midX = rect.left + rect.width / 2;
+  const position = event.clientX > midX ? "after" : "before";
+
+  tabDragState.targetIndex = targetIndex;
+  tabDragState.targetPosition = position;
+
+  const tabs = fileTabs.querySelectorAll(".file-tab");
+  tabs.forEach((t) => t.classList.remove("drag-drop-before", "drag-drop-after"));
+
+  if (
+    tabDragState.draggedIndex !== targetIndex ||
+    (position === "before" && targetIndex > 0) ||
+    (position === "after" && targetIndex < tabsState.tabs.length - 1)
+  ) {
+    if (position === "before") {
+      targetTabWrap.classList.add("drag-drop-before");
+    } else {
+      targetTabWrap.classList.add("drag-drop-after");
+    }
+  }
+}
+
+function onTabDragLeave(event) {
+  const related = event.relatedTarget;
+  if (event.currentTarget && (!related || !event.currentTarget.contains(related))) {
+    event.currentTarget.classList.remove("drag-drop-before", "drag-drop-after");
+  }
+}
+
+function onTabDrop(event) {
+  if (!tabDragState.active) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+
+  finishTabReorder();
+}
+
+function onTabDragEnd() {
+  clearTabDragClasses();
+  tabDragState.active = false;
+  tabDragState.draggedTabId = null;
+  tabDragState.draggedIndex = -1;
+  tabDragState.targetIndex = -1;
+  tabDragState.targetPosition = null;
+}
+
+function onFileTabsDragOver(event) {
+  if (!tabDragState.active) {
+    return;
+  }
+  if (event.target === fileTabs) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    tabDragState.targetIndex = tabsState.tabs.length - 1;
+    tabDragState.targetPosition = "after";
+
+    const tabs = fileTabs.querySelectorAll(".file-tab");
+    tabs.forEach((t) => t.classList.remove("drag-drop-before", "drag-drop-after"));
+    if (tabs.length > 0) {
+      tabs[tabs.length - 1].classList.add("drag-drop-after");
+    }
+  }
+}
+
+function onFileTabsDrop(event) {
+  if (!tabDragState.active) {
+    return;
+  }
+  if (event.target === fileTabs) {
+    event.preventDefault();
+    finishTabReorder();
+  }
+}
+
+function finishTabReorder() {
+  const fromIndex = tabDragState.draggedIndex;
+  const targetIndex = tabDragState.targetIndex;
+  const position = tabDragState.targetPosition;
+
+  clearTabDragClasses();
+  tabDragState.active = false;
+
+  if (fromIndex < 0 || targetIndex < 0 || fromIndex >= tabsState.tabs.length || targetIndex >= tabsState.tabs.length) {
+    return;
+  }
+
+  let destinationIndex = targetIndex;
+  if (position === "after") {
+    destinationIndex = targetIndex + 1;
+  }
+
+  if (fromIndex < destinationIndex) {
+    destinationIndex -= 1;
+  }
+
+  if (fromIndex !== destinationIndex && destinationIndex >= 0 && destinationIndex < tabsState.tabs.length) {
+    const [movedTab] = tabsState.tabs.splice(fromIndex, 1);
+    tabsState.tabs.splice(destinationIndex, 0, movedTab);
+    renderFileTabs();
+  }
 }
 
 function activateTab(tabId, options = {}) {
@@ -1107,6 +1287,8 @@ rowDetailsCopyBtn.addEventListener("click", copyRowDetailsLog);
 rowDetailsResizeHandle.addEventListener("mousedown", onRowDetailsResizeStart);
 if (fileTabs) {
   fileTabs.addEventListener("click", onFileTabsClick);
+  fileTabs.addEventListener("dragover", onFileTabsDragOver);
+  fileTabs.addEventListener("drop", onFileTabsDrop);
 }
 
 openFileMenuItem.addEventListener("click", () => {
@@ -4920,6 +5102,31 @@ function clearGroupBy() {
   renderTable();
 }
 
+function clearHeaderDragClasses() {
+  const ths = dataTable.querySelectorAll("thead th[data-header]");
+  ths.forEach((th) => {
+    th.classList.remove("is-dragging", "drag-drop-before", "drag-drop-after", "drop-target-left", "drop-target-right");
+  });
+}
+
+function updateHeaderDropClasses(ths, toIndex, hoverIndex = -1) {
+  ths.forEach((th) => {
+    th.classList.remove("drag-drop-before", "drag-drop-after", "drop-target-left", "drop-target-right");
+  });
+
+  if (hoverIndex >= 0 && hoverIndex < ths.length) {
+    if (toIndex === hoverIndex) {
+      ths[hoverIndex].classList.add("drop-target-left");
+    } else {
+      ths[hoverIndex].classList.add("drop-target-right");
+    }
+  } else if (toIndex < ths.length) {
+    ths[toIndex].classList.add("drop-target-left");
+  } else if (toIndex >= ths.length && ths.length > 0) {
+    ths[ths.length - 1].classList.add("drop-target-right");
+  }
+}
+
 function onGroupDragStart(event) {
   if (event.button !== 0 || colDragState.active || resizeState.activeHeader) {
     return;
@@ -4938,6 +5145,7 @@ function onGroupDragStart(event) {
   event.preventDefault();
   event.stopPropagation();
 
+  clearHeaderDragClasses();
   groupDragState.active = true;
   groupDragState.header = header;
   groupDragState.insideDropZone = false;
@@ -4945,9 +5153,14 @@ function onGroupDragStart(event) {
 
   const ghost = document.createElement("div");
   ghost.className = "col-drag-ghost";
-  ghost.textContent = `Group: ${header}`;
+  ghost.innerHTML = `<span class="col-drag-ghost-icon">⋮⋮</span><span>${header}</span>`;
   document.body.appendChild(ghost);
   groupDragState.ghostEl = ghost;
+
+  const th = dataTable.querySelector(`thead th[data-header="${CSS.escape(header)}"]`);
+  if (th) {
+    th.classList.add("is-dragging");
+  }
 
   const indicator = document.createElement("div");
   indicator.className = "col-drop-indicator";
@@ -4993,6 +5206,8 @@ function onGroupDragEnd() {
     return;
   }
 
+  clearHeaderDragClasses();
+
   if (groupDragState.insideDropZone && groupDragState.header && state.headers.includes(groupDragState.header)) {
     if (!state.groupByColumns.includes(groupDragState.header)) {
       state.groupByColumns.push(groupDragState.header);
@@ -5032,32 +5247,57 @@ function updateHeaderReorderIndicator(clientX) {
   }
 
   let toIndex = ths.length;
+  let hoverIndex = -1;
   let indicatorX = ths[ths.length - 1].getBoundingClientRect().right;
 
   for (let i = 0; i < ths.length; i++) {
     const rect = ths[i].getBoundingClientRect();
-    const mid = rect.left + rect.width / 2;
-    if (clientX <= mid) {
-      toIndex = i;
-      indicatorX = rect.left;
+    if (clientX >= rect.left && clientX <= rect.right) {
+      hoverIndex = i;
+      const mid = rect.left + rect.width / 2;
+      if (clientX <= mid) {
+        toIndex = i;
+        indicatorX = rect.left;
+      } else {
+        toIndex = i + 1;
+        indicatorX = rect.right;
+      }
+      break;
+    } else if (clientX < rect.left) {
+      if (i === 0) {
+        toIndex = 0;
+        hoverIndex = 0;
+        indicatorX = rect.left;
+      }
       break;
     }
   }
 
-  groupDragState.toVisibleIndex = toIndex;
+  if (hoverIndex === -1 && clientX > ths[ths.length - 1].getBoundingClientRect().right) {
+    toIndex = ths.length;
+    hoverIndex = ths.length - 1;
+    indicatorX = ths[ths.length - 1].getBoundingClientRect().right;
+  }
 
-  const tableRect = dataTable.getBoundingClientRect();
+  groupDragState.toVisibleIndex = toIndex;
+  updateHeaderDropClasses(ths, toIndex, hoverIndex);
+
+  const headerRow = dataTable.querySelector("thead tr");
+  const headerRect = headerRow ? headerRow.getBoundingClientRect() : dataTable.getBoundingClientRect();
   groupDragState.indicatorEl.style.left = `${indicatorX}px`;
-  groupDragState.indicatorEl.style.top = `${tableRect.top}px`;
-  groupDragState.indicatorEl.style.height = `${tableRect.height}px`;
+  groupDragState.indicatorEl.style.top = `${headerRect.top}px`;
+  groupDragState.indicatorEl.style.height = `${headerRect.height}px`;
   groupDragState.indicatorEl.style.display = "block";
 }
 
 function hideHeaderReorderIndicator() {
-  if (!groupDragState.indicatorEl) {
-    return;
+  if (groupDragState.indicatorEl) {
+    groupDragState.indicatorEl.style.display = "none";
   }
-  groupDragState.indicatorEl.style.display = "none";
+  const ths = dataTable.querySelectorAll("thead th[data-header]");
+  ths.forEach((th) => {
+    th.classList.remove("drag-drop-before", "drag-drop-after", "drop-target-left", "drop-target-right");
+  });
 }
 
 function startHeaderDragAutoScroll() {
@@ -5353,10 +5593,19 @@ function onColDragStart(event) {
   event.preventDefault();
   event.stopPropagation();
 
+  clearHeaderDragClasses();
   colDragState.active = true;
   colDragState.fromIndex = idx;
   colDragState.toIndex = idx;
   colDragState.lastClientX = event.clientX;
+
+  const header = state.headers[idx];
+  if (header) {
+    const th = dataTable.querySelector(`thead th[data-header="${CSS.escape(header)}"]`);
+    if (th) {
+      th.classList.add("is-dragging");
+    }
+  }
 
   const indicator = document.createElement("div");
   indicator.className = "col-drop-indicator";
@@ -5379,26 +5628,48 @@ function updateColDragIndicator(clientX) {
   }
 
   let toIndex = ths.length;
+  let hoverIndex = -1;
   let indicatorX = ths[ths.length - 1].getBoundingClientRect().right;
 
   for (let i = 0; i < ths.length; i++) {
     const rect = ths[i].getBoundingClientRect();
-    const mid = rect.left + rect.width / 2;
-    if (clientX <= mid) {
-      toIndex = i;
-      indicatorX = rect.left;
+    if (clientX >= rect.left && clientX <= rect.right) {
+      hoverIndex = i;
+      const mid = rect.left + rect.width / 2;
+      if (clientX <= mid) {
+        toIndex = i;
+        indicatorX = rect.left;
+      } else {
+        toIndex = i + 1;
+        indicatorX = rect.right;
+      }
+      break;
+    } else if (clientX < rect.left) {
+      if (i === 0) {
+        toIndex = 0;
+        hoverIndex = 0;
+        indicatorX = rect.left;
+      }
       break;
     }
   }
 
+  if (hoverIndex === -1 && clientX > ths[ths.length - 1].getBoundingClientRect().right) {
+    toIndex = ths.length;
+    hoverIndex = ths.length - 1;
+    indicatorX = ths[ths.length - 1].getBoundingClientRect().right;
+  }
+
   colDragState.toIndex = toIndex;
+  updateHeaderDropClasses(ths, toIndex, hoverIndex);
 
   const el = colDragState.indicatorEl;
   if (el) {
-    const tableRect = dataTable.getBoundingClientRect();
+    const headerRow = dataTable.querySelector("thead tr");
+    const headerRect = headerRow ? headerRow.getBoundingClientRect() : dataTable.getBoundingClientRect();
     el.style.left = `${indicatorX}px`;
-    el.style.top = `${tableRect.top}px`;
-    el.style.height = `${tableRect.height}px`;
+    el.style.top = `${headerRect.top}px`;
+    el.style.height = `${headerRect.height}px`;
     el.style.display = "block";
   }
 }
@@ -5407,6 +5678,8 @@ function finishColDrag() {
   const { fromIndex, toIndex } = colDragState;
 
   stopColDragAutoScroll();
+
+  clearHeaderDragClasses();
 
   if (colDragState.indicatorEl) {
     colDragState.indicatorEl.remove();

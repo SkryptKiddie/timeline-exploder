@@ -681,12 +681,13 @@ body {
 .file-tabs {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   padding: 4px 6px 0;
   border-bottom: 1px solid var(--win-border);
   background: linear-gradient(#f3f1e9, #ece8dd);
   overflow-x: auto;
   overflow-y: hidden;
+  user-select: none;
 }
 
 .file-tabs.hidden {
@@ -701,18 +702,71 @@ body {
   max-width: 260px;
   border: 1px solid var(--win-border);
   border-bottom: 0;
-  border-top-left-radius: 4px;
-  border-top-right-radius: 4px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
   background: #e8e4d7;
   color: var(--win-text);
   padding: 0;
   overflow: hidden;
+  position: relative;
+  cursor: grab;
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1),
+              box-shadow 0.15s cubic-bezier(0.2, 0, 0, 1),
+              opacity 0.15s cubic-bezier(0.2, 0, 0, 1),
+              background-color 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.file-tab:hover {
+  background: #ded9c8;
+}
+
+.file-tab:active {
+  cursor: grabbing;
 }
 
 .file-tab.is-active {
   background: #ffffff;
   position: relative;
   top: 1px;
+}
+
+.file-tab.is-dragging {
+  opacity: 0.45;
+  transform: scale(0.96);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  cursor: grabbing;
+}
+
+.file-tab.drag-drop-before::before,
+.file-tab.drag-drop-after::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #2563eb;
+  box-shadow: 0 0 6px rgba(37, 99, 235, 0.7);
+  border-radius: 2px;
+  z-index: 20;
+  pointer-events: none;
+  animation: tabDropPulse 0.8s ease-in-out infinite alternate;
+}
+
+.file-tab.drag-drop-before::before {
+  left: -2px;
+}
+
+.file-tab.drag-drop-after::after {
+  right: -2px;
+}
+
+@keyframes tabDropPulse {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .file-tab-label {
@@ -733,7 +787,7 @@ body {
   font: inherit;
   text-align: left;
   padding: 4px 4px 4px 8px;
-  cursor: pointer;
+  cursor: inherit;
   overflow: hidden;
 }
 
@@ -747,11 +801,15 @@ body {
   line-height: 1;
   opacity: 0.72;
   cursor: pointer;
-  padding: 0 1px;
+  padding: 2px 6px;
+  margin-right: 2px;
+  border-radius: 4px;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
 }
 
 .file-tab-close:hover {
   opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .meta-row {
@@ -1069,10 +1127,15 @@ body {
   line-height: 1;
   padding: 0 1px 0 0;
   user-select: none;
+  transition: color 0.12s ease;
 }
 
 .col-drag-handle:hover {
-  color: #666;
+  color: #2563eb;
+}
+
+.col-drag-handle:active {
+  cursor: grabbing;
 }
 
 .col-sort-btn {
@@ -1098,11 +1161,14 @@ body {
 
 .col-drop-indicator {
   position: fixed;
-  width: 2px;
-  background: #0066cc;
+  width: 3px;
+  background: #2563eb;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.8);
+  border-radius: 2px;
   pointer-events: none;
   z-index: 999;
   display: none;
+  animation: tabDropPulse 0.8s ease-in-out infinite alternate;
 }
 
 .selection-col,
@@ -1278,19 +1344,73 @@ body {
   z-index: 1001;
   pointer-events: none;
   background: #ffffff;
-  border: 1px solid #8aa3bf;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
-  padding: 3px 8px;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.25), 0 4px 10px -2px rgba(0, 0, 0, 0.1);
+  padding: 5px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: #1e3a8a;
   white-space: nowrap;
-  opacity: 0.94;
+  opacity: 0.95;
   transform: translate(12px, 12px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.col-drag-ghost-icon {
+  font-size: 11px;
+  opacity: 0.7;
+  letter-spacing: -1px;
 }
 
 .data-table th[data-header] {
   cursor: grab;
+  transition: background-color 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+.data-table th[data-header]:active {
+  cursor: grabbing;
+}
+
+.data-table th.is-dragging {
+  opacity: 0.45;
+  background: #dbe8f8 !important;
+  box-shadow: inset 0 0 6px rgba(37, 99, 235, 0.25);
+}
+
+.data-table th.drop-target-left {
+  background: rgba(37, 99, 235, 0.14) !important;
+  box-shadow: inset 4px 0 0 #2563eb, inset 0 0 0 1px rgba(37, 99, 235, 0.4) !important;
+}
+
+.data-table th.drop-target-right {
+  background: rgba(37, 99, 235, 0.14) !important;
+  box-shadow: inset -4px 0 0 #2563eb, inset 0 0 0 1px rgba(37, 99, 235, 0.4) !important;
+}
+
+.data-table th.drag-drop-before::before,
+.data-table th.drag-drop-after::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #2563eb;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.8);
+  border-radius: 2px;
+  z-index: 35;
+  pointer-events: none;
+  animation: tabDropPulse 0.8s ease-in-out infinite alternate;
+}
+
+.data-table th.drag-drop-before::before {
+  left: 0;
+}
+
+.data-table th.drag-drop-after::after {
+  right: 0;
 }
 
 .clear-group-by-btn {
@@ -1727,10 +1847,35 @@ body[data-theme="dark"] .resize-handle:hover {
   background: #2f4768;
 }
 
+body[data-theme="dark"] .data-table th.is-dragging,
+body[data-theme="material-dark"] .data-table th.is-dragging,
+body[data-theme="ios-dark"] .data-table th.is-dragging,
+body[data-theme="neon-party"] .data-table th.is-dragging {
+  background: #1e3a5f !important;
+  box-shadow: inset 0 0 6px rgba(59, 130, 246, 0.4);
+}
+
+body[data-theme="dark"] .data-table th.drop-target-left,
+body[data-theme="material-dark"] .data-table th.drop-target-left,
+body[data-theme="ios-dark"] .data-table th.drop-target-left,
+body[data-theme="neon-party"] .data-table th.drop-target-left {
+  background: rgba(59, 130, 246, 0.22) !important;
+  box-shadow: inset 4px 0 0 #3b82f6, inset 0 0 0 1px rgba(59, 130, 246, 0.5) !important;
+}
+
+body[data-theme="dark"] .data-table th.drop-target-right,
+body[data-theme="material-dark"] .data-table th.drop-target-right,
+body[data-theme="ios-dark"] .data-table th.drop-target-right,
+body[data-theme="neon-party"] .data-table th.drop-target-right {
+  background: rgba(59, 130, 246, 0.22) !important;
+  box-shadow: inset -4px 0 0 #3b82f6, inset 0 0 0 1px rgba(59, 130, 246, 0.5) !important;
+}
+
 body[data-theme="dark"] .col-drag-ghost {
-  background: #22314a;
-  border-color: #6a8fbd;
-  color: #e7edf6;
+  background: #1e293b;
+  border-color: #3b82f6;
+  color: #f1f5f9;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
 }
 
 body[data-theme="material-light"] {
