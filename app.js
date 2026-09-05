@@ -3897,11 +3897,7 @@ function appendTableHeader(thead, visibleHeaders) {
     title.className = "col-title";
     title.textContent = header;
     title.dataset.header = header;
-    title.draggable = true;
-    title.title = "Drag into Group By or Advanced Search";
-    title.addEventListener("mousedown", (event) => event.stopPropagation());
-    title.addEventListener("dragstart", onHeaderTitleDragStart);
-    title.addEventListener("dragend", onHeaderTitleDragEnd);
+    title.title = dragInstruction;
 
     const filterDef = normalizeFilterDefinition(state.filters[header]) || {
       operator: "contains",
