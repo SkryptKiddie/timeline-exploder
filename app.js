@@ -135,6 +135,9 @@ const state = {
   advancedSearchAst: null,
   advancedSearchError: "",
   selectedRowIds: new Set(),
+  selectedCells: new Set(),
+  cellSelectionAnchor: null,
+  activeCell: null,
   columnWidths: {},
   rowNumberWidth: 72,
   sort: { header: null, direction: null }, // null | "asc" | "desc"
@@ -182,6 +185,7 @@ const colDragState = {
   toIndex: -1,
   ghostEl: null,
   insideDropZone: false,
+  insideAdvancedSearch: false,
   indicatorEl: null,
   autoScrollRaf: null,
   lastClientX: 0
@@ -192,6 +196,7 @@ const groupDragState = {
   header: null,
   ghostEl: null,
   insideDropZone: false,
+  insideAdvancedSearch: false,
   toIndex: -1,
   indicatorEl: null,
   autoScrollRaf: null,
@@ -226,6 +231,13 @@ const rowDetailsResizeState = {
   active: false,
   startX: 0,
   startWidth: 0
+};
+
+const cellSelectionDragState = {
+  active: false,
+  anchor: null,
+  moved: false,
+  suppressClick: false
 };
 
 const tabsState = {
@@ -1281,6 +1293,8 @@ rowDetailsOverlay.addEventListener("click", onRowDetailsOverlayClick);
 columnStatsCloseBtn.addEventListener("click", closeColumnStatsOverlay);
 columnStatsOverlay.addEventListener("click", onColumnStatsOverlayClick);
 dataTable.addEventListener("dblclick", onDataTableDoubleClick);
+dataTable.addEventListener("click", onDataTableClick);
+dataTable.addEventListener("mousedown", onDataTableCellMouseDown);
 dataTable.addEventListener("contextmenu", onDataTableContextMenu);
 cellFontSizeInput.addEventListener("input", onCellOverlayFontSizeInput);
 cellFontDecreaseBtn.addEventListener("click", () => adjustCellOverlayFontSize(-1));
@@ -1358,6 +1372,10 @@ fieldMenuViewRow.addEventListener("click", () => {
 
 fieldMenuCopySelectedHtml.addEventListener("click", () => {
   hideFieldContextMenu();
+  if (state.selectedCells.size > 1) {
+    copySelectedCells();
+    return;
+  }
   copySelectedRowsAsHtml();
 });
 
@@ -1489,7 +1507,7 @@ contextMenuHide.addEventListener("click", () => {
 });
 
 document.addEventListener("click", onDocumentClick);
-document.addEventListener("keydown", onDocumentKeyDown);
+document.addEventListener("keydown", onDocumentKeyDown, true);
 document.addEventListener("dragenter", onDocumentFileDragEnter);
 document.addEventListener("dragover", onDocumentFileDragOver);
 document.addEventListener("dragleave", onDocumentFileDragLeave);
@@ -1498,6 +1516,8 @@ document.addEventListener("mousemove", onColumnResizeMove);
 document.addEventListener("mouseup", onColumnResizeStop);
 document.addEventListener("mousemove", onGroupDragMove);
 document.addEventListener("mouseup", onGroupDragEnd);
+document.addEventListener("mousemove", onCellSelectionDragMove);
+document.addEventListener("mouseup", onCellSelectionDragEnd);
 document.addEventListener("mousemove", onRowDetailsResizeMove);
 document.addEventListener("mouseup", onRowDetailsResizeStop);
 groupByList.addEventListener("dragover", onGroupListDragOver);
@@ -1883,6 +1903,13 @@ function closeAllMenus() {
 }
 
 function onDocumentClick(event) {
+  if (!dataTable.contains(event.target) && state.selectedCells.size) {
+    state.selectedCells.clear();
+    state.cellSelectionAnchor = null;
+    state.activeCell = null;
+    syncCellSelectionInDom();
+  }
+
   const anyOpen =
     !fileMenu.classList.contains("hidden") ||
     !optionsMenu.classList.contains("hidden") ||
@@ -1921,9 +1948,18 @@ function onDocumentKeyDown(event) {
     return;
   }
 
-  if (event.key === "Escape" && !rowDetailsOverlay.classList.contains("hidden")) {
-    closeRowDetailsOverlay();
-    return;
+  if (!rowDetailsOverlay.classList.contains("hidden")) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeRowDetailsOverlay();
+      return;
+    }
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      event.preventDefault();
+      navigateRowDetails(event.key === "ArrowUp" ? -1 : 1);
+      return;
+    }
   }
 
   if (event.key === "Escape" && !columnStatsOverlay.classList.contains("hidden")) {
@@ -1945,6 +1981,19 @@ function onDocumentKeyDown(event) {
   const key = event.key.toLowerCase();
   const isMod = event.ctrlKey || event.metaKey;
   const isAltOnly = event.altKey && !isMod;
+
+  if (isMod && key === "c" && !isTyping && state.selectedCells.size) {
+    event.preventDefault();
+    copySelectedCells();
+    return;
+  }
+
+  if (!isTyping && !isMod && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+    if (moveActiveCellSelection(event.key, event.shiftKey)) {
+      event.preventDefault();
+      return;
+    }
+  }
 
   if (event.key === "F3" && state.headers.length) {
     event.preventDefault();
@@ -2074,6 +2123,189 @@ function onDataTableDoubleClick(event) {
   });
 }
 
+function getCellSelectionKey(rowId, header) {
+  return `${rowId}\u241f${header}`;
+}
+
+function isCellSelected(rowId, header) {
+  return state.selectedCells.has(getCellSelectionKey(rowId, header));
+}
+
+function syncCellSelectionInDom() {
+  const cells = dataTable.querySelectorAll("td[data-row-id][data-header]");
+  cells.forEach((cell) => {
+    cell.classList.toggle("cell-selected", isCellSelected(cell.dataset.rowId, cell.dataset.header));
+  });
+}
+
+function selectCellRange(anchor, target) {
+  const visibleHeaders = getVisibleHeaders();
+  const anchorRowIndex = state.filteredRows.findIndex((row) => row.__rowId === anchor.rowId);
+  const targetRowIndex = state.filteredRows.findIndex((row) => row.__rowId === target.rowId);
+  const anchorColumnIndex = visibleHeaders.indexOf(anchor.header);
+  const targetColumnIndex = visibleHeaders.indexOf(target.header);
+  if (anchorRowIndex < 0 || targetRowIndex < 0 || anchorColumnIndex < 0 || targetColumnIndex < 0) {
+    state.selectedCells = new Set([getCellSelectionKey(target.rowId, target.header)]);
+    state.cellSelectionAnchor = target;
+    syncCellSelectionInDom();
+    return;
+  }
+
+  state.selectedCells = new Set();
+  const [firstRow, lastRow] = [anchorRowIndex, targetRowIndex].sort((first, second) => first - second);
+  const [firstColumn, lastColumn] = [anchorColumnIndex, targetColumnIndex].sort((first, second) => first - second);
+  for (let rowIndex = firstRow; rowIndex <= lastRow; rowIndex += 1) {
+    for (let columnIndex = firstColumn; columnIndex <= lastColumn; columnIndex += 1) {
+      state.selectedCells.add(getCellSelectionKey(state.filteredRows[rowIndex].__rowId, visibleHeaders[columnIndex]));
+    }
+  }
+  syncCellSelectionInDom();
+}
+
+function revealActiveCell() {
+  const activeCell = state.activeCell;
+  if (!activeCell) {
+    return;
+  }
+
+  if (state.virtualizedRendering && !state.groupByColumns.length) {
+    const rowIndex = state.filteredRows.findIndex((row) => row.__rowId === activeCell.rowId);
+    if (rowIndex >= 0) {
+      tableScroll.scrollTop = Math.max(0, rowIndex * virtualState.rowHeight - virtualState.rowHeight * 2);
+      renderVirtualizedRows();
+    }
+  }
+
+  requestAnimationFrame(() => {
+    const cell = dataTable.querySelector(
+      `td[data-row-id="${activeCell.rowId}"][data-header="${CSS.escape(activeCell.header)}"]`
+    );
+    cell?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
+  });
+}
+
+function moveActiveCellSelection(key, extendRange) {
+  const activeCell = state.activeCell;
+  if (!activeCell || !state.headers.length) {
+    return false;
+  }
+
+  const visibleHeaders = getVisibleHeaders();
+  const rowIndex = state.filteredRows.findIndex((row) => row.__rowId === activeCell.rowId);
+  const columnIndex = visibleHeaders.indexOf(activeCell.header);
+  if (rowIndex < 0 || columnIndex < 0) {
+    return false;
+  }
+
+  const rowDelta = key === "ArrowUp" ? -1 : key === "ArrowDown" ? 1 : 0;
+  const columnDelta = key === "ArrowLeft" ? -1 : key === "ArrowRight" ? 1 : 0;
+  const nextRowIndex = Math.max(0, Math.min(state.filteredRows.length - 1, rowIndex + rowDelta));
+  const nextColumnIndex = Math.max(0, Math.min(visibleHeaders.length - 1, columnIndex + columnDelta));
+  const target = {
+    rowId: state.filteredRows[nextRowIndex].__rowId,
+    header: visibleHeaders[nextColumnIndex]
+  };
+
+  if (extendRange && state.cellSelectionAnchor) {
+    selectCellRange(state.cellSelectionAnchor, target);
+  } else {
+    state.selectedCells = new Set([getCellSelectionKey(target.rowId, target.header)]);
+    state.cellSelectionAnchor = target;
+    syncCellSelectionInDom();
+  }
+
+  state.activeCell = target;
+  revealActiveCell();
+  return true;
+}
+
+function onDataTableClick(event) {
+  const cell = event.target.closest("td[data-row-id][data-header]");
+  if (!cell) {
+    return;
+  }
+
+  if (cellSelectionDragState.suppressClick) {
+    cellSelectionDragState.suppressClick = false;
+    return;
+  }
+
+  const rowId = cell.dataset.rowId;
+  const header = cell.dataset.header;
+  if (!rowId || !header) {
+    return;
+  }
+
+  if (!event.shiftKey || !state.cellSelectionAnchor) {
+    state.selectedCells = new Set([getCellSelectionKey(rowId, header)]);
+    state.cellSelectionAnchor = { rowId, header };
+    state.activeCell = { rowId, header };
+    syncCellSelectionInDom();
+    return;
+  }
+
+  selectCellRange(state.cellSelectionAnchor, { rowId, header });
+  state.activeCell = { rowId, header };
+}
+
+function onDataTableCellMouseDown(event) {
+  if (event.button !== 0 || event.shiftKey) {
+    return;
+  }
+
+  const cell = event.target.closest("td[data-row-id][data-header]");
+  if (!cell) {
+    return;
+  }
+
+  const anchor = { rowId: cell.dataset.rowId, header: cell.dataset.header };
+  if (!anchor.rowId || !anchor.header) {
+    return;
+  }
+
+  state.selectedCells = new Set([getCellSelectionKey(anchor.rowId, anchor.header)]);
+  state.cellSelectionAnchor = anchor;
+  state.activeCell = anchor;
+  cellSelectionDragState.active = true;
+  cellSelectionDragState.anchor = anchor;
+  cellSelectionDragState.moved = false;
+  cellSelectionDragState.suppressClick = false;
+  syncCellSelectionInDom();
+  event.preventDefault();
+}
+
+function onCellSelectionDragMove(event) {
+  if (!cellSelectionDragState.active) {
+    return;
+  }
+
+  const cell = document.elementFromPoint(event.clientX, event.clientY)?.closest("td[data-row-id][data-header]");
+  if (!cell) {
+    return;
+  }
+
+  const target = { rowId: cell.dataset.rowId, header: cell.dataset.header };
+  if (!target.rowId || !target.header) {
+    return;
+  }
+
+  if (target.rowId !== cellSelectionDragState.anchor.rowId || target.header !== cellSelectionDragState.anchor.header) {
+    cellSelectionDragState.moved = true;
+  }
+  selectCellRange(cellSelectionDragState.anchor, target);
+  state.activeCell = target;
+}
+
+function onCellSelectionDragEnd() {
+  if (!cellSelectionDragState.active) {
+    return;
+  }
+
+  cellSelectionDragState.suppressClick = cellSelectionDragState.moved;
+  cellSelectionDragState.active = false;
+  cellSelectionDragState.anchor = null;
+}
+
 function onDataTableContextMenu(event) {
   const fieldCell = event.target.closest("td[data-row-id][data-header]");
   if (fieldCell) {
@@ -2145,11 +2377,26 @@ function onColumnStatsOverlayClick(event) {
 
 function closeRowDetailsOverlay() {
   rowDetailsOverlay.classList.add("hidden");
+  delete rowDetailsOverlay.dataset.rowId;
 }
 
 function onRowDetailsOverlayClick(event) {
   if (event.target === rowDetailsOverlay) {
     closeRowDetailsOverlay();
+  }
+}
+
+function navigateRowDetails(direction) {
+  const currentRowId = rowDetailsOverlay.dataset.rowId || "";
+  const currentIndex = state.visibleRowIds.indexOf(currentRowId);
+  if (currentIndex < 0) {
+    return;
+  }
+
+  const nextIndex = Math.max(0, Math.min(state.visibleRowIds.length - 1, currentIndex + direction));
+  const nextRowId = state.visibleRowIds[nextIndex];
+  if (nextRowId) {
+    openRowDetailsOverlay(nextRowId);
   }
 }
 
@@ -2259,6 +2506,7 @@ function openRowDetailsOverlay(rowId) {
 
   const rowNumber = Number(row.__sourceIndex) + 1;
   const logText = buildRowLogText(row);
+  rowDetailsOverlay.dataset.rowId = rowId;
   rowDetailsTitle.textContent = `Row ${rowNumber} Details`;
   rowDetailsLog.innerHTML = highlightLogEntryText(logText);
 
@@ -2677,10 +2925,18 @@ function showFieldContextMenu({ header, rowId, value }, clientX, clientY) {
   fieldContextState.clientX = clientX;
   fieldContextState.clientY = clientY;
 
+  const hasMultipleSelectedCells = state.selectedCells.size > 1;
   fieldMenuCopyValue.textContent = "Copy Value";
   fieldMenuCopyCell.textContent = "Copy Cell";
   fieldMenuViewRow.textContent = "View Row Details";
-  fieldMenuCopySelectedHtml.classList.toggle("hidden", state.selectedRowIds.size === 0);
+  fieldMenuCopySelectedHtml.textContent = hasMultipleSelectedCells ? "Copy Selected" : "Copy Selected Rows as HTML";
+  fieldMenuCopySelectedHtml.classList.toggle("hidden", !hasMultipleSelectedCells && state.selectedRowIds.size === 0);
+  fieldMenuViewRow.classList.toggle("hidden", hasMultipleSelectedCells);
+  fieldMenuCopyValue.classList.toggle("hidden", hasMultipleSelectedCells);
+  fieldMenuCopyCell.classList.toggle("hidden", hasMultipleSelectedCells);
+  fieldMenuFilterEquals.classList.toggle("hidden", hasMultipleSelectedCells);
+  fieldMenuFilterNotEquals.classList.toggle("hidden", hasMultipleSelectedCells);
+  fieldMenuVirusTotal.classList.toggle("hidden", hasMultipleSelectedCells);
   fieldMenuFilterEquals.textContent = `Filter: ${header} = this value`;
   fieldMenuFilterNotEquals.textContent = `Filter: ${header} != this value`;
   fieldMenuVirusTotal.textContent = `VirusTotal Lookup for ${header}`;
@@ -3337,6 +3593,9 @@ function hydrateState(headers, rows) {
   state.visibleRowIds = [];
   state.sort = { header: null, direction: null };
   state.selectedRowIds = new Set();
+  state.selectedCells = new Set();
+  state.cellSelectionAnchor = null;
+  state.activeCell = null;
   if (!Number.isFinite(state.rowNumberWidth)) {
     state.rowNumberWidth = 72;
   }
@@ -3432,6 +3691,9 @@ function resetState() {
   state.rowColorByColumn = "";
   state.sort = { header: null, direction: null };
   state.selectedRowIds = new Set();
+  state.selectedCells = new Set();
+  state.cellSelectionAnchor = null;
+  state.activeCell = null;
   state.columnWidths = {};
   state.rowNumberWidth = 72;
   state.groupByColumns = [];
@@ -3609,9 +3871,38 @@ function findPreviousMatch() {
   focusActiveFindMatch();
 }
 
+function expandGroupsForFindMatch(rowId) {
+  if (!state.groupByColumns.length) {
+    return false;
+  }
+
+  const row = getRowById(rowId);
+  if (!row) {
+    return false;
+  }
+
+  let groupPath = "";
+  let changed = false;
+  state.groupByColumns.forEach((header) => {
+    const value = row[header] || "(blank)";
+    groupPath = groupPath ? `${groupPath}\u241f${value}` : value;
+    if (!state.expandedGroups.has(groupPath)) {
+      state.expandedGroups.add(groupPath);
+      changed = true;
+    }
+  });
+
+  return changed;
+}
+
 function focusActiveFindMatch() {
   const match = getActiveFindMatch();
   if (!match) {
+    return;
+  }
+
+  if (expandGroupsForFindMatch(match.rowId)) {
+    renderTable();
     return;
   }
 
@@ -3985,6 +4276,7 @@ function appendDataRow(tbody, row, visibleHeaders) {
     td.dataset.rowId = row.__rowId;
     td.dataset.header = header;
     td.textContent = row[header] || "";
+    td.classList.toggle("cell-selected", isCellSelected(row.__rowId, header));
 
     if (isCellFindMatch(row.__rowId, header)) {
       td.classList.add("find-match");
@@ -5300,7 +5592,7 @@ function startColumnDragAutoScroll(dragState) {
     if (delta !== 0) {
       const previous = tableScroll.scrollLeft;
       tableScroll.scrollLeft += delta;
-      if (tableScroll.scrollLeft !== previous && !dragState.insideDropZone) {
+      if (tableScroll.scrollLeft !== previous && !dragState.insideDropZone && !dragState.insideAdvancedSearch) {
         updateColumnReorderIndicator(dragState, dragState.lastClientX);
       }
     }
@@ -5340,6 +5632,7 @@ function onGroupDragStart(event) {
   groupDragState.active = true;
   groupDragState.header = header;
   groupDragState.insideDropZone = false;
+  groupDragState.insideAdvancedSearch = false;
   groupDragState.toIndex = -1;
 
   groupDragState.ghostEl = createColumnDragGhost(header, event.clientX, event.clientY);
@@ -5371,6 +5664,20 @@ function isInsideGroupDropZone(clientX, clientY) {
   );
 }
 
+function isInsideAdvancedSearchDropZone(clientX, clientY) {
+  if (advancedSearchWrap.classList.contains("hidden")) {
+    return false;
+  }
+
+  const zoneRect = advancedSearchWrap.getBoundingClientRect();
+  return (
+    clientX >= zoneRect.left - HEADER_DRAG_DROP_RADIUS &&
+    clientX <= zoneRect.right + HEADER_DRAG_DROP_RADIUS &&
+    clientY >= zoneRect.top - HEADER_DRAG_DROP_RADIUS &&
+    clientY <= zoneRect.bottom + HEADER_DRAG_DROP_RADIUS
+  );
+}
+
 function onGroupDragMove(event) {
   if (!groupDragState.active) {
     return;
@@ -5379,12 +5686,15 @@ function onGroupDragMove(event) {
   positionColumnDragGhost(groupDragState.ghostEl, event.clientX, event.clientY);
   groupDragState.lastClientX = event.clientX;
 
-  const inside = isInsideGroupDropZone(event.clientX, event.clientY);
+  const insideAdvancedSearch = isInsideAdvancedSearchDropZone(event.clientX, event.clientY);
+  const inside = !insideAdvancedSearch && isInsideGroupDropZone(event.clientX, event.clientY);
 
   groupDragState.insideDropZone = inside;
+  groupDragState.insideAdvancedSearch = insideAdvancedSearch;
   groupByZone.dataset.dropActive = inside ? "true" : "false";
+  setAdvancedSearchDropActive(insideAdvancedSearch);
 
-  if (inside) {
+  if (inside || insideAdvancedSearch) {
     hideColumnReorderIndicator(groupDragState);
   } else {
     updateColumnReorderIndicator(groupDragState, event.clientX);
@@ -5399,7 +5709,9 @@ function onGroupDragEnd(event) {
   onGroupDragMove(event);
   clearHeaderDragClasses();
 
-  if (groupDragState.insideDropZone && groupDragState.header && state.headers.includes(groupDragState.header)) {
+  if (groupDragState.insideAdvancedSearch && groupDragState.header) {
+    insertAdvancedFieldIntoQuery(groupDragState.header);
+  } else if (groupDragState.insideDropZone && groupDragState.header && state.headers.includes(groupDragState.header)) {
     if (!state.groupByColumns.includes(groupDragState.header)) {
       state.groupByColumns.push(groupDragState.header);
     }
@@ -5425,8 +5737,10 @@ function onGroupDragEnd(event) {
   groupDragState.active = false;
   groupDragState.header = null;
   groupDragState.insideDropZone = false;
+  groupDragState.insideAdvancedSearch = false;
   groupDragState.toIndex = -1;
   groupByZone.dataset.dropActive = "false";
+  setAdvancedSearchDropActive(false);
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
 }
@@ -5547,6 +5861,27 @@ function copySelectedRowsAsHtml() {
     return;
   }
   copyRowsAsHtml(rows, "selected");
+}
+
+function copySelectedCells() {
+  const selectedRows = state.filteredRows.filter((row) =>
+    getVisibleHeaders().some((header) => isCellSelected(row.__rowId, header))
+  );
+  const selectedHeaders = getVisibleHeaders().filter((header) =>
+    selectedRows.some((row) => isCellSelected(row.__rowId, header))
+  );
+
+  if (!selectedRows.length || !selectedHeaders.length) {
+    setStatus("No visible cells selected.", "warn");
+    return;
+  }
+
+  const text = selectedRows
+    .map((row) => selectedHeaders
+      .map((header) => isCellSelected(row.__rowId, header) ? sanitizeForTsv(row[header] || "") : "")
+      .join("\t"))
+    .join("\n");
+  copyTextToClipboard(text);
 }
 
 function copyVisibleRows() {
@@ -5672,10 +6007,14 @@ function onColumnResizeStart(event) {
 function onColumnResizeMove(event) {
   if (colDragState.active) {
     positionColumnDragGhost(colDragState.ghostEl, event.clientX, event.clientY);
-    const inside = isInsideGroupDropZone(event.clientX, event.clientY);
+    colDragState.lastClientX = event.clientX;
+    const insideAdvancedSearch = isInsideAdvancedSearchDropZone(event.clientX, event.clientY);
+    const inside = !insideAdvancedSearch && isInsideGroupDropZone(event.clientX, event.clientY);
     colDragState.insideDropZone = inside;
+    colDragState.insideAdvancedSearch = insideAdvancedSearch;
     groupByZone.dataset.dropActive = inside ? "true" : "false";
-    if (inside) {
+    setAdvancedSearchDropActive(insideAdvancedSearch);
+    if (inside || insideAdvancedSearch) {
       if (colDragState.indicatorEl) {
         colDragState.indicatorEl.style.display = "none";
       }
@@ -5736,6 +6075,7 @@ function onColDragStart(event) {
   colDragState.fromIndex = idx;
   colDragState.toIndex = idx;
   colDragState.insideDropZone = false;
+  colDragState.insideAdvancedSearch = false;
   colDragState.lastClientX = event.clientX;
 
   const header = state.headers[idx];
@@ -5761,10 +6101,13 @@ function onColDragStart(event) {
 }
 
 function finishColDrag(event) {
-  const { fromIndex, toIndex, insideDropZone } = colDragState;
+  const { fromIndex, toIndex, insideDropZone, insideAdvancedSearch } = colDragState;
   const draggedHeader = state.headers[fromIndex];
+  const droppedInAdvancedSearch = event
+    ? isInsideAdvancedSearchDropZone(event.clientX, event.clientY)
+    : insideAdvancedSearch;
   const droppedInGroupZone = event
-    ? isInsideGroupDropZone(event.clientX, event.clientY)
+    ? !droppedInAdvancedSearch && isInsideGroupDropZone(event.clientX, event.clientY)
     : insideDropZone;
 
   stopColumnDragAutoScroll(colDragState);
@@ -5785,11 +6128,18 @@ function finishColDrag(event) {
   colDragState.fromIndex = -1;
   colDragState.toIndex = -1;
   colDragState.insideDropZone = false;
+  colDragState.insideAdvancedSearch = false;
   groupByZone.dataset.dropActive = "false";
+  setAdvancedSearchDropActive(false);
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
 
   if (fromIndex < 0 || !draggedHeader) {
+    return;
+  }
+
+  if (droppedInAdvancedSearch) {
+    insertAdvancedFieldIntoQuery(draggedHeader);
     return;
   }
 
