@@ -2162,20 +2162,25 @@ function toLogValue(value) {
   if (!text) {
     return '""';
   }
+
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed !== null && (Array.isArray(parsed) || typeof parsed === "object")) {
+      return JSON.stringify(parsed, null, 2);
+    }
+  } catch {
+    // Preserve ordinary text when it is not valid JSON.
+  }
+
   if (/^[a-zA-Z0-9_./:@+\-]+$/.test(text)) {
     return text;
   }
   return JSON.stringify(text);
 }
 
-function buildRowLogText(row, rowNumber) {
+function buildRowLogText(row) {
   const parts = [];
   const usedKeys = new Set();
-
-  parts.push(`row_number=${rowNumber}`);
-  if (state.fileName) {
-    parts.push(`source_file=${toLogValue(state.fileName)}`);
-  }
 
   state.headers.forEach((header) => {
     const rawValue = row[header];
@@ -2233,7 +2238,7 @@ function openRowDetailsOverlay(rowId) {
   }
 
   const rowNumber = Number(row.__sourceIndex) + 1;
-  const logText = buildRowLogText(row, rowNumber);
+  const logText = buildRowLogText(row);
   rowDetailsTitle.textContent = `Row ${rowNumber} Details`;
   rowDetailsLog.innerHTML = highlightLogEntryText(logText);
 
@@ -2622,6 +2627,25 @@ function onRowMenuTriggerClick(event) {
   openRowDetailsOverlay(rowId);
 }
 
+function positionContextMenu(menu, clientX, clientY) {
+  const viewportPadding = 8;
+  menu.style.left = `${clientX}px`;
+  menu.style.top = `${clientY}px`;
+
+  const { width, height } = menu.getBoundingClientRect();
+  const left = Math.max(
+    viewportPadding,
+    Math.min(clientX, window.innerWidth - width - viewportPadding)
+  );
+  const top = Math.max(
+    viewportPadding,
+    Math.min(clientY, window.innerHeight - height - viewportPadding)
+  );
+
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
 function showFieldContextMenu({ header, rowId, value }, clientX, clientY) {
   if (!header) {
     return;
@@ -2641,8 +2665,7 @@ function showFieldContextMenu({ header, rowId, value }, clientX, clientY) {
   fieldMenuVirusTotal.textContent = `VirusTotal Lookup for ${header}`;
 
   fieldContextMenu.classList.remove("hidden");
-  fieldContextMenu.style.left = `${clientX}px`;
-  fieldContextMenu.style.top = `${clientY}px`;
+  positionContextMenu(fieldContextMenu, clientX, clientY);
   hideColumnContextMenu();
 }
 
@@ -4602,8 +4625,6 @@ function showColumnContextMenu(header, clientX, clientY) {
   columnContextState.clientY = clientY;
 
   columnContextMenu.classList.remove("hidden");
-  columnContextMenu.style.left = `${clientX}px`;
-  columnContextMenu.style.top = `${clientY}px`;
 
   const isPinned = state.pinnedColumns.includes(header);
   contextMenuPin.classList.toggle("hidden", isPinned);
@@ -4611,6 +4632,7 @@ function showColumnContextMenu(header, clientX, clientY) {
   const isActiveColorColumn = state.rowColorByColumn === header;
   contextMenuColorRows.classList.toggle("hidden", isActiveColorColumn);
   contextMenuClearRowColor.classList.toggle("hidden", !state.rowColorByColumn);
+  positionContextMenu(columnContextMenu, clientX, clientY);
 }
 
 function hideColumnContextMenu() {

@@ -188,12 +188,13 @@ body {
 
 .column-context-menu {
   position: fixed;
+  width: 220px;
+  max-width: calc(100vw - 16px);
   background: #ffffff;
   border: 1px solid var(--win-border-dark);
   box-shadow: 1px 1px 0 #ffffff inset, 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   padding: 4px;
-  min-width: 160px;
 }
 
 .column-context-menu.hidden {
@@ -202,12 +203,13 @@ body {
 
 .field-context-menu {
   position: fixed;
+  width: 280px;
+  max-width: calc(100vw - 16px);
   background: #ffffff;
   border: 1px solid var(--win-border-dark);
   box-shadow: 1px 1px 0 #ffffff inset, 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 1001;
   padding: 4px;
-  min-width: 190px;
 }
 
 .field-context-menu.hidden {
@@ -216,6 +218,9 @@ body {
 
 .context-menu-item {
   width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: left;
   font: inherit;
   background: transparent;
