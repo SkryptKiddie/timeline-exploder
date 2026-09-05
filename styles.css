@@ -2452,6 +2452,12 @@ body[data-theme="ios-dark"] .tool-btn {
   border-radius: 10px;
 }
 
+body[data-theme="ios-dark"] .menu-button:hover,
+body[data-theme="ios-dark"] .menu-button[aria-expanded="true"] {
+  background: #2b2f3c;
+  border-color: #51576a;
+}
+
 body[data-theme="ios-dark"] .tool-btn {
   background: linear-gradient(180deg, #2b2f3c 0%, #22252f 100%);
   border-color: #51576a;

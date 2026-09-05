@@ -177,6 +177,7 @@ const colDragState = {
   active: false,
   fromIndex: -1,
   toIndex: -1,
+  ghostEl: null,
   indicatorEl: null,
   autoScrollRaf: null,
   lastClientX: 0
@@ -2776,6 +2777,9 @@ function setTheme(theme) {
   state.theme = theme;
   persistThemePreference(theme);
   applyTheme();
+  if (state.rowColorByColumn) {
+    renderTable();
+  }
   syncMenuCheckboxStates();
   setStatus(`Theme: ${THEME_LABELS[state.theme] || state.theme}.`, "ok");
 }
@@ -3337,6 +3341,7 @@ const COL_FILTER_UI_MIN_PX = 156; // keeps operator + filter input readable on f
 const DATETIME_DETECT_SAMPLE_ROWS = 1200;
 const DATETIME_DETECT_MIN_NON_EMPTY = 30;
 const DATETIME_DETECT_THRESHOLD = 0.82;
+const HEADER_DRAG_DROP_RADIUS = 14;
 
 function ensureColumnWidths() {
   const next = {};
@@ -3833,7 +3838,8 @@ function appendTableHeader(thead, visibleHeaders) {
     const th = document.createElement("th");
     th.style.width = `${state.columnWidths[header]}px`;
     th.dataset.header = header;
-    th.title = "Drag to reorder columns or drop into group area";
+    const dragInstruction = "Drag to reorder columns or drop into group area";
+    th.title = dragInstruction;
     th.addEventListener("mousedown", onGroupDragStart);
     th.addEventListener("contextmenu", (e) => onColumnHeaderContextMenu(e, header));
 
@@ -3848,6 +3854,7 @@ function appendTableHeader(thead, visibleHeaders) {
     const dragHandle = document.createElement("div");
     dragHandle.className = "col-drag-handle";
     dragHandle.dataset.colIndex = String(state.headers.indexOf(header));
+    dragHandle.title = dragInstruction;
     dragHandle.textContent = "\u22EE";
     dragHandle.addEventListener("mousedown", onColDragStart);
 
@@ -3870,6 +3877,7 @@ function appendTableHeader(thead, visibleHeaders) {
     title.className = "col-title";
     title.textContent = header;
     title.dataset.header = header;
+    title.title = dragInstruction;
     title.draggable = true;
     title.title = "Drag into Group By or Advanced Search";
     title.addEventListener("mousedown", (event) => event.stopPropagation());
@@ -5206,12 +5214,11 @@ function onGroupDragMove(event) {
   groupDragState.lastClientX = event.clientX;
 
   const zoneRect = groupByZone.getBoundingClientRect();
-  const pad = 14;
   const inside =
-    event.clientX >= zoneRect.left - pad &&
-    event.clientX <= zoneRect.right + pad &&
-    event.clientY >= zoneRect.top - pad &&
-    event.clientY <= zoneRect.bottom + pad;
+    event.clientX >= zoneRect.left - HEADER_DRAG_DROP_RADIUS &&
+    event.clientX <= zoneRect.right + HEADER_DRAG_DROP_RADIUS &&
+    event.clientY >= zoneRect.top - HEADER_DRAG_DROP_RADIUS &&
+    event.clientY <= zoneRect.bottom + HEADER_DRAG_DROP_RADIUS;
 
   groupDragState.insideDropZone = inside;
   groupByZone.dataset.dropActive = inside ? "true" : "false";
@@ -5274,7 +5281,7 @@ function updateHeaderReorderIndicator(clientX) {
 
   for (let i = 0; i < ths.length; i++) {
     const rect = ths[i].getBoundingClientRect();
-    if (clientX >= rect.left && clientX <= rect.right) {
+    if (clientX >= rect.left - HEADER_DRAG_DROP_RADIUS && clientX <= rect.right + HEADER_DRAG_DROP_RADIUS) {
       hoverIndex = i;
       const mid = rect.left + rect.width / 2;
       if (clientX <= mid) {
@@ -5565,6 +5572,7 @@ function onColumnResizeStart(event) {
 
 function onColumnResizeMove(event) {
   if (colDragState.active) {
+    positionColDragGhost(event.clientX, event.clientY);
     updateColDragIndicator(event.clientX);
     return;
   }
@@ -5627,6 +5635,13 @@ function onColDragStart(event) {
     if (th) {
       th.classList.add("is-dragging");
     }
+
+    const ghost = document.createElement("div");
+    ghost.className = "col-drag-ghost";
+    ghost.innerHTML = `<span class="col-drag-ghost-icon">⋮⋮</span><span>${header}</span>`;
+    document.body.appendChild(ghost);
+    colDragState.ghostEl = ghost;
+    positionColDragGhost(event.clientX, event.clientY);
   }
 
   const indicator = document.createElement("div");
@@ -5655,7 +5670,7 @@ function updateColDragIndicator(clientX) {
 
   for (let i = 0; i < ths.length; i++) {
     const rect = ths[i].getBoundingClientRect();
-    if (clientX >= rect.left && clientX <= rect.right) {
+    if (clientX >= rect.left - HEADER_DRAG_DROP_RADIUS && clientX <= rect.right + HEADER_DRAG_DROP_RADIUS) {
       hoverIndex = i;
       const mid = rect.left + rect.width / 2;
       if (clientX <= mid) {
@@ -5708,6 +5723,11 @@ function finishColDrag() {
     colDragState.indicatorEl = null;
   }
 
+  if (colDragState.ghostEl) {
+    colDragState.ghostEl.remove();
+    colDragState.ghostEl = null;
+  }
+
   colDragState.active = false;
   colDragState.fromIndex = -1;
   colDragState.toIndex = -1;
@@ -5720,6 +5740,15 @@ function finishColDrag() {
 
   const draggedHeader = state.headers[fromIndex];
   applyColumnReorder(draggedHeader, toIndex);
+}
+
+function positionColDragGhost(clientX, clientY) {
+  if (!colDragState.ghostEl) {
+    return;
+  }
+
+  colDragState.ghostEl.style.left = `${clientX}px`;
+  colDragState.ghostEl.style.top = `${clientY}px`;
 }
 
 function startColDragAutoScroll() {
