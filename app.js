@@ -4589,13 +4589,39 @@ function hashTextToHue(value) {
   return hash % 360;
 }
 
+const SYSLOG_SEVERITY_HUES = {
+  EMERG: 0,
+  EMERGENCY: 0,
+  PANIC: 0,
+  ALERT: 4,
+  CRIT: 8,
+  CRITICAL: 8,
+  FATAL: 8,
+  ERR: 16,
+  ERROR: 16,
+  WARNING: 40,
+  WARN: 40,
+  NOTICE: 205,
+  INFO: 195,
+  INFORMATIONAL: 195,
+  INFORMATION: 195,
+  DEBUG: 225
+};
+
+function getSyslogSeverityHue(value) {
+  const normalized = String(value || "").trim().toUpperCase();
+  return Object.hasOwn(SYSLOG_SEVERITY_HUES, normalized)
+    ? SYSLOG_SEVERITY_HUES[normalized]
+    : null;
+}
+
 function getRowColorStyleByValue(rawValue) {
   const value = String(rawValue || "").trim();
   if (!value) {
     return null;
   }
 
-  const hue = hashTextToHue(value);
+  const hue = getSyslogSeverityHue(value) ?? hashTextToHue(value);
   const isDarkTheme =
     state.theme === "dark" ||
     state.theme === "material-dark" ||
