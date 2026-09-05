@@ -899,6 +899,7 @@ function applyTabSnapshot(snapshot) {
   updateSelectedActionsVisibility();
   applyCellOverlayFontSize(snapshot.cellOverlayFontSize || 12);
   applyRowDetailsFontSize(snapshot.rowDetailsFontSize || 12);
+  updateDocumentTitle();
 
   if (!state.headers.length) {
     tableZone.classList.add("hidden");
@@ -918,6 +919,17 @@ function getActiveTabRecord() {
     return null;
   }
   return tabsState.tabs.find((tab) => tab.id === tabsState.activeTabId) || null;
+}
+
+function updateDocumentTitle() {
+  const baseTitle = "Timeline Exploder";
+  const activeTab = getActiveTabRecord();
+  const currentFileName = state.fileName || (activeTab ? activeTab.title : "");
+  if (currentFileName) {
+    document.title = `${baseTitle} - ${currentFileName}`;
+  } else {
+    document.title = baseTitle;
+  }
 }
 
 function saveActiveTabSnapshot() {
@@ -1300,6 +1312,7 @@ updateTimeWindowControls();
 applyCellOverlayFontSize(cellOverlayFontSize);
 applyRowDetailsFontSize(rowDetailsFontSize);
 renderFileTabs();
+updateDocumentTitle();
 
 async function onFileSelected(event) {
   const files = Array.from(event.target.files || []);
@@ -1356,6 +1369,7 @@ async function loadFile(file) {
     state.fileType = file.type || "";
     state.sqliteTables = [];
     state.sqliteTableName = "";
+    updateDocumentTitle();
 
     const extension = state.fileName.split(".").pop()?.toLowerCase() || "";
     const isSqlite = isSqliteExtension(extension) || state.fileType.toLowerCase().includes("sqlite");
@@ -3198,7 +3212,10 @@ function resetState() {
   state.findMatches = [];
   state.findMatchLookup = new Set();
   state.activeFindMatchIndex = -1;
+  state.fileText = "";
   state.fileBuffer = null;
+  state.fileName = "";
+  state.fileType = "";
   state.sqliteTables = [];
   state.sqliteTableName = "";
   state.datetimeHeaders = [];
@@ -3217,6 +3234,7 @@ function resetState() {
   updateTimeWindowControls();
   updateSelectedActionsVisibility();
   clearRowDetailsTabs();
+  updateDocumentTitle();
 }
 
 function closeFile() {
