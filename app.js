@@ -2140,8 +2140,31 @@ function isCellSelected(rowId, header) {
 function syncCellSelectionInDom() {
   const cells = dataTable.querySelectorAll("td[data-row-id][data-header]");
   cells.forEach((cell) => {
-    cell.classList.toggle("cell-selected", isCellSelected(cell.dataset.rowId, cell.dataset.header));
+    applyCellSelectionClasses(cell, cell.dataset.rowId, cell.dataset.header);
   });
+}
+
+function applyCellSelectionClasses(cell, rowId, header) {
+  const isSelected = isCellSelected(rowId, header);
+  cell.classList.toggle("cell-selected", isSelected);
+  cell.classList.remove("cell-selection-top", "cell-selection-right", "cell-selection-bottom", "cell-selection-left");
+  if (!isSelected) {
+    return;
+  }
+
+  const visibleHeaders = getVisibleHeaders();
+  const rowIndex = state.filteredRows.findIndex((row) => row.__rowId === rowId);
+  const columnIndex = visibleHeaders.indexOf(header);
+  const adjacentCellSelected = (nextRowIndex, nextColumnIndex) => {
+    const row = state.filteredRows[nextRowIndex];
+    const nextHeader = visibleHeaders[nextColumnIndex];
+    return Boolean(row && nextHeader && isCellSelected(row.__rowId, nextHeader));
+  };
+
+  cell.classList.toggle("cell-selection-top", !adjacentCellSelected(rowIndex - 1, columnIndex));
+  cell.classList.toggle("cell-selection-right", !adjacentCellSelected(rowIndex, columnIndex + 1));
+  cell.classList.toggle("cell-selection-bottom", !adjacentCellSelected(rowIndex + 1, columnIndex));
+  cell.classList.toggle("cell-selection-left", !adjacentCellSelected(rowIndex, columnIndex - 1));
 }
 
 function selectCellRange(anchor, target) {
@@ -4283,7 +4306,7 @@ function appendDataRow(tbody, row, visibleHeaders) {
     td.dataset.rowId = row.__rowId;
     td.dataset.header = header;
     td.textContent = row[header] || "";
-    td.classList.toggle("cell-selected", isCellSelected(row.__rowId, header));
+    applyCellSelectionClasses(td, row.__rowId, header);
 
     if (isCellFindMatch(row.__rowId, header)) {
       td.classList.add("find-match");
@@ -5900,6 +5923,7 @@ function copySelectedCells() {
 
   const text = toTsvValuesOnly(table.headers, table.rows);
   copyTextToClipboard(text);
+  flashSelectedCells();
 }
 
 async function copySelectedCellsAsHtml() {
@@ -5912,6 +5936,16 @@ async function copySelectedCellsAsHtml() {
   const text = toTsv(table.headers, table.rows);
   const html = toHtmlTable(table.headers, table.rows);
   await copyHtmlToClipboard(html, text, "Copied selected cells as HTML.");
+  flashSelectedCells();
+}
+
+function flashSelectedCells() {
+  const cells = dataTable.querySelectorAll("td.cell-selected");
+  cells.forEach((cell) => {
+    cell.classList.remove("cell-copy-flash");
+    void cell.offsetWidth;
+    cell.classList.add("cell-copy-flash");
+  });
 }
 
 function copyVisibleRows() {

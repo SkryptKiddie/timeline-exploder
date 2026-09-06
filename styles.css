@@ -1239,12 +1239,48 @@ body {
 
 .data-table td.cell-selected {
   background: rgba(0, 120, 212, 0.16) !important;
-  box-shadow: inset 0 0 0 2px #0078d4;
+  --cell-selection-top: 0 0 transparent;
+  --cell-selection-right: 0 0 transparent;
+  --cell-selection-bottom: 0 0 transparent;
+  --cell-selection-left: 0 0 transparent;
+  box-shadow: var(--cell-selection-top), var(--cell-selection-right), var(--cell-selection-bottom), var(--cell-selection-left);
+}
+
+.data-table td.cell-selection-top {
+  --cell-selection-top: inset 0 2px 0 #0078d4;
+}
+
+.data-table td.cell-selection-right {
+  --cell-selection-right: inset -2px 0 0 #0078d4;
+}
+
+.data-table td.cell-selection-bottom {
+  --cell-selection-bottom: inset 0 -2px 0 #0078d4;
+}
+
+.data-table td.cell-selection-left {
+  --cell-selection-left: inset 2px 0 0 #0078d4;
+}
+
+.data-table td.cell-copy-flash {
+  animation: cellCopyFlash 0.28s ease-out;
 }
 
 .data-table td[data-row-id][data-header] {
   cursor: cell;
   user-select: none;
+}
+
+@keyframes cellCopyFlash {
+  0% {
+    filter: drop-shadow(0 0 0 rgba(0, 120, 212, 0));
+  }
+  40% {
+    filter: drop-shadow(0 0 5px rgba(0, 120, 212, 0.42));
+  }
+  100% {
+    filter: drop-shadow(0 0 0 rgba(0, 120, 212, 0));
+  }
 }
 
 .filter-input {
