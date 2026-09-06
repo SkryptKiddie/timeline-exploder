@@ -90,6 +90,7 @@ const contextMenuHide = document.getElementById("contextMenuHide");
 const fieldContextMenu = document.getElementById("fieldContextMenu");
 const fieldMenuViewRow = document.getElementById("fieldMenuViewRow");
 const fieldMenuCopySelectedHtml = document.getElementById("fieldMenuCopySelectedHtml");
+const fieldMenuCopyCellsHtml = document.getElementById("fieldMenuCopyCellsHtml");
 const fieldMenuCopyValue = document.getElementById("fieldMenuCopyValue");
 const fieldMenuCopyCell = document.getElementById("fieldMenuCopyCell");
 const fieldMenuFilterEquals = document.getElementById("fieldMenuFilterEquals");
@@ -1377,6 +1378,11 @@ fieldMenuCopySelectedHtml.addEventListener("click", () => {
     return;
   }
   copySelectedRowsAsHtml();
+});
+
+fieldMenuCopyCellsHtml.addEventListener("click", () => {
+  hideFieldContextMenu();
+  copySelectedCellsAsHtml();
 });
 
 fieldMenuCopyValue.addEventListener("click", () => {
@@ -2931,6 +2937,7 @@ function showFieldContextMenu({ header, rowId, value }, clientX, clientY) {
   fieldMenuViewRow.textContent = "View Row Details";
   fieldMenuCopySelectedHtml.textContent = hasMultipleSelectedCells ? "Copy Selected" : "Copy Selected Rows as HTML";
   fieldMenuCopySelectedHtml.classList.toggle("hidden", !hasMultipleSelectedCells && state.selectedRowIds.size === 0);
+  fieldMenuCopyCellsHtml.classList.toggle("hidden", !hasMultipleSelectedCells);
   fieldMenuViewRow.classList.toggle("hidden", hasMultipleSelectedCells);
   fieldMenuCopyValue.classList.toggle("hidden", hasMultipleSelectedCells);
   fieldMenuCopyCell.classList.toggle("hidden", hasMultipleSelectedCells);
@@ -5863,7 +5870,7 @@ function copySelectedRowsAsHtml() {
   copyRowsAsHtml(rows, "selected");
 }
 
-function copySelectedCells() {
+function getSelectedCellTable() {
   const selectedRows = state.filteredRows.filter((row) =>
     getVisibleHeaders().some((header) => isCellSelected(row.__rowId, header))
   );
@@ -5872,16 +5879,39 @@ function copySelectedCells() {
   );
 
   if (!selectedRows.length || !selectedHeaders.length) {
+    return null;
+  }
+
+  const rows = selectedRows.map((row) => Object.fromEntries(
+    selectedHeaders.map((header) => [
+      header,
+      isCellSelected(row.__rowId, header) ? row[header] || "" : ""
+    ])
+  ));
+  return { headers: selectedHeaders, rows };
+}
+
+function copySelectedCells() {
+  const table = getSelectedCellTable();
+  if (!table) {
     setStatus("No visible cells selected.", "warn");
     return;
   }
 
-  const text = selectedRows
-    .map((row) => selectedHeaders
-      .map((header) => isCellSelected(row.__rowId, header) ? sanitizeForTsv(row[header] || "") : "")
-      .join("\t"))
-    .join("\n");
+  const text = toTsvValuesOnly(table.headers, table.rows);
   copyTextToClipboard(text);
+}
+
+async function copySelectedCellsAsHtml() {
+  const table = getSelectedCellTable();
+  if (!table) {
+    setStatus("No visible cells selected.", "warn");
+    return;
+  }
+
+  const text = toTsv(table.headers, table.rows);
+  const html = toHtmlTable(table.headers, table.rows);
+  await copyHtmlToClipboard(html, text, "Copied selected cells as HTML.");
 }
 
 function copyVisibleRows() {
@@ -5924,6 +5954,14 @@ async function copyRowsAsHtml(rows, sourceLabel) {
   const text = toTsv(state.headers, rows);
   const html = toHtmlTable(state.headers, rows);
 
+  await copyHtmlToClipboard(
+    html,
+    text,
+    `Copied ${rows.length} ${sourceLabel} row${rows.length === 1 ? "" : "s"} as HTML.`
+  );
+}
+
+async function copyHtmlToClipboard(html, text, successMessage) {
   try {
     if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
       throw new Error("Rich clipboard support is unavailable.");
@@ -5934,7 +5972,7 @@ async function copyRowsAsHtml(rows, sourceLabel) {
         "text/plain": new Blob([text], { type: "text/plain" })
       })
     ]);
-    setStatus(`Copied ${rows.length} ${sourceLabel} row${rows.length === 1 ? "" : "s"} as HTML.`, "ok");
+    setStatus(successMessage, "ok");
   } catch (error) {
     console.error(error);
     fallbackCopy(text);
