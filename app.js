@@ -55,6 +55,8 @@ const themeLightMenuItem = document.getElementById("themeLightMenuItem");
 const themeDarkMenuItem = document.getElementById("themeDarkMenuItem");
 const themeMaterialLightMenuItem = document.getElementById("themeMaterialLightMenuItem");
 const themeMaterialDarkMenuItem = document.getElementById("themeMaterialDarkMenuItem");
+const themeAdxLightMenuItem = document.getElementById("themeAdxLightMenuItem");
+const themeAdxDarkMenuItem = document.getElementById("themeAdxDarkMenuItem");
 const themeIosLightMenuItem = document.getElementById("themeIosLightMenuItem");
 const themeIosDarkMenuItem = document.getElementById("themeIosDarkMenuItem");
 const themeNeonPartyMenuItem = document.getElementById("themeNeonPartyMenuItem");
@@ -263,13 +265,15 @@ const ROW_NUMBER_VISIBILITY_STORAGE_KEY = "timelineExploderShowRowNumbers";
 const CELL_OVERLAY_FONT_MIN = 10;
 const CELL_OVERLAY_FONT_MAX = 28;
 const FILE_TAB_LABEL_MAX = 28;
-const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "ios-light", "ios-dark", "neon-party", "windows-xp"]);
+const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "ios-light", "ios-dark", "adx-light", "adx-dark", "neon-party", "windows-xp"]);
 const ADVANCED_FIELD_DRAG_MIME = "application/x-timeline-exploder-header";
 const THEME_LABELS = {
   "material-light": "Material Light",
   "material-dark": "Material Dark",
   light: "Classic Light",
   dark: "Classic Dark",
+  "adx-light": "ADX Light",
+  "adx-dark": "ADX Dark",
   "ios-light": "iOS Light",
   "ios-dark": "iOS Dark",
   "neon-party": "Neon",
@@ -1423,6 +1427,16 @@ themeMaterialLightMenuItem.addEventListener("click", () => {
 themeMaterialDarkMenuItem.addEventListener("click", () => {
   closeAllMenus();
   setTheme("material-dark");
+});
+
+themeAdxLightMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  setTheme("adx-light");
+});
+
+themeAdxDarkMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  setTheme("adx-dark");
 });
 
 themeIosLightMenuItem.addEventListener("click", () => {
@@ -3155,6 +3169,8 @@ function syncMenuCheckboxStates() {
   themeDarkMenuItem.setAttribute("aria-checked", state.theme === "dark" ? "true" : "false");
   themeMaterialLightMenuItem.setAttribute("aria-checked", state.theme === "material-light" ? "true" : "false");
   themeMaterialDarkMenuItem.setAttribute("aria-checked", state.theme === "material-dark" ? "true" : "false");
+  themeAdxLightMenuItem.setAttribute("aria-checked", state.theme === "adx-light" ? "true" : "false");
+  themeAdxDarkMenuItem.setAttribute("aria-checked", state.theme === "adx-dark" ? "true" : "false");
   themeIosLightMenuItem.setAttribute("aria-checked", state.theme === "ios-light" ? "true" : "false");
   themeIosDarkMenuItem.setAttribute("aria-checked", state.theme === "ios-dark" ? "true" : "false");
   themeNeonPartyMenuItem.setAttribute("aria-checked", state.theme === "neon-party" ? "true" : "false");
@@ -4970,12 +4986,14 @@ function getRowColorStyleByValue(rawValue) {
     state.theme === "dark" ||
     state.theme === "material-dark" ||
     state.theme === "ios-dark" ||
+    state.theme === "adx-dark" ||
     state.theme === "neon-party";
 
   const isLightTheme =
     state.theme === "light" ||
     state.theme === "material-light" ||
-    state.theme === "ios-light";
+    state.theme === "ios-light" ||
+    state.theme === "adx-light";
 
   if (isDarkTheme) {
     return {
