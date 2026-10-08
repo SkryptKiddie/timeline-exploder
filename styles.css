@@ -73,7 +73,10 @@ body {
   z-index: 30;
 }
 
-.menu-bar-wrap {
+/* Keep an open menu above the row details flyout (z-index 1470) */
+.top-chrome:has(.menu-button:not(.help-button)[aria-expanded="true"]) {
+  z-index: 1480;
+}
   border-bottom: 1px solid var(--win-border);
   background: linear-gradient(#faf9f2, #ebe7d9);
 }

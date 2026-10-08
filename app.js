@@ -4975,13 +4975,93 @@ function getSyslogSeverityHue(value) {
     : null;
 }
 
-function getRowColorStyleByValue(rawValue) {
+const GOLDEN_ANGLE = 137.508;
+const rowColorAssignmentCache = { rows: null, length: -1, column: "", assignments: null };
+
+// Gives each distinct value in the column its own hue (golden-angle spacing), with
+// lightness/saturation tiers once hues start to crowd. Severity values keep fixed hues.
+function getRowColorAssignments(column) {
+  const cache = rowColorAssignmentCache;
+  if (cache.assignments && cache.rows === state.rows && cache.length === state.rows.length && cache.column === column) {
+    return cache.assignments;
+  }
+
+  const counts = new Map();
+  state.rows.forEach((row) => {
+    const value = String(row[column] || "").trim();
+    if (value) {
+      counts.set(value, (counts.get(value) || 0) + 1);
+    }
+  });
+
+  const severityHues = [];
+  const assignments = new Map();
+  const others = [];
+  [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+    .forEach(([value]) => {
+      const hue = getSyslogSeverityHue(value);
+      if (hue !== null) {
+        assignments.set(value, { hue, tier: 0 });
+        severityHues.push(hue);
+      } else {
+        others.push(value);
+      }
+    });
+
+  const circularGap = (a, b) => {
+    const diff = Math.abs(a - b) % 360;
+    return Math.min(diff, 360 - diff);
+  };
+  const HUES_PER_TIER = 14;
+  let hueIndex = 0;
+  others.forEach((value, i) => {
+    const tier = Math.floor(i / HUES_PER_TIER) % 3;
+    let hue = (hueIndex * GOLDEN_ANGLE) % 360;
+    let guard = 0;
+    while (tier === 0 && severityHues.some((s) => circularGap(s, hue) < 12) && guard < 50) {
+      hueIndex += 1;
+      hue = (hueIndex * GOLDEN_ANGLE) % 360;
+      guard += 1;
+    }
+    hueIndex += 1;
+    assignments.set(value, { hue, tier });
+  });
+
+  cache.rows = state.rows;
+  cache.length = state.rows.length;
+  cache.column = column;
+  cache.assignments = assignments;
+  return assignments;
+}
+
+const ROW_COLOR_TIERS = {
+  dark: [
+    { s: 34, l: 33 },
+    { s: 48, l: 24 },
+    { s: 26, l: 42 }
+  ],
+  light: [
+    { s: 88, l: 84 },
+    { s: 70, l: 74 },
+    { s: 90, l: 91 }
+  ],
+  other: [
+    { s: 80, l: 92 },
+    { s: 70, l: 84 },
+    { s: 85, l: 96 }
+  ]
+};
+
+function getRowColorStyleByValue(rawValue, column = state.rowColorByColumn) {
   const value = String(rawValue || "").trim();
   if (!value) {
     return null;
   }
 
-  const hue = getSyslogSeverityHue(value) ?? hashTextToHue(value);
+  const assignment = getRowColorAssignments(column).get(value);
+  const hue = assignment ? assignment.hue : hashTextToHue(value);
+  const tier = assignment ? assignment.tier : 0;
   const isDarkTheme =
     state.theme === "dark" ||
     state.theme === "material-dark" ||
@@ -4996,22 +5076,25 @@ function getRowColorStyleByValue(rawValue) {
     state.theme === "adx-light";
 
   if (isDarkTheme) {
+    const { s, l } = ROW_COLOR_TIERS.dark[tier];
     return {
-      bg: `hsla(${hue}, 34%, 33%, 0.52)`,
-      hover: `hsla(${hue}, 36%, 38%, 0.62)`
+      bg: `hsla(${hue}, ${s}%, ${l}%, 0.52)`,
+      hover: `hsla(${hue}, ${s + 2}%, ${l + 5}%, 0.62)`
     };
   }
 
   if (isLightTheme) {
+    const { s, l } = ROW_COLOR_TIERS.light[tier];
     return {
-      bg: `hsla(${hue}, 88%, 84%, 0.96)`,
-      hover: `hsla(${hue}, 92%, 78%, 0.98)`
+      bg: `hsla(${hue}, ${s}%, ${l}%, 0.96)`,
+      hover: `hsla(${hue}, ${s + 4}%, ${l - 6}%, 0.98)`
     };
   }
 
+  const { s, l } = ROW_COLOR_TIERS.other[tier];
   return {
-    bg: `hsla(${hue}, 80%, 92%, 0.95)`,
-    hover: `hsla(${hue}, 82%, 88%, 0.98)`
+    bg: `hsla(${hue}, ${s}%, ${l}%, 0.95)`,
+    hover: `hsla(${hue}, ${s + 2}%, ${l - 4}%, 0.98)`
   };
 }
 
