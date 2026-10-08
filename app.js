@@ -1599,8 +1599,10 @@ async function loadFile(file) {
     state.sqliteTableName = "";
     updateDocumentTitle();
 
-    const extension = state.fileName.split(".").pop()?.toLowerCase() || "";
-    const isSqlite = isSqliteExtension(extension) || state.fileType.toLowerCase().includes("sqlite");
+    const isSqlite = await detectSqliteFile(file);
+    if (isSqlite) {
+      state.fileType = SQLITE_MIME_TYPE;
+    }
 
     if (isSqlite) {
       state.fileBuffer = await file.arrayBuffer();
@@ -1730,7 +1732,7 @@ async function onDocumentFileDrop(event) {
 
 async function parseCurrentFile() {
   const extension = state.fileName.split(".").pop()?.toLowerCase() || "";
-  if (isSqliteExtension(extension) || state.fileType.toLowerCase().includes("sqlite")) {
+  if (state.fileBuffer || isSqliteExtension(extension) || state.fileType.toLowerCase().includes("sqlite")) {
     if (!state.fileBuffer) {
       return;
     }
@@ -1753,8 +1755,28 @@ async function parseCurrentFile() {
   }
 }
 
+const SQLITE_MIME_TYPE = "application/vnd.sqlite3";
+const SQLITE_MAGIC = "SQLite format 3\u0000";
+
 function isSqliteExtension(extension) {
   return extension === "sqlite" || extension === "sqlite3" || extension === "db";
+}
+
+// Detects SQLite by content (magic header) first, then MIME type, then extension.
+async function detectSqliteFile(file) {
+  try {
+    const header = new Uint8Array(await file.slice(0, SQLITE_MAGIC.length).arrayBuffer());
+    if (header.length === SQLITE_MAGIC.length && SQLITE_MAGIC.split("").every((ch, i) => header[i] === ch.charCodeAt(0))) {
+      return true;
+    }
+  } catch (error) {
+    // Fall through to metadata checks.
+  }
+  const type = (file.type || "").toLowerCase();
+  if (type.includes("sqlite")) {
+    return true;
+  }
+  return isSqliteExtension(file.name.split(".").pop()?.toLowerCase() || "");
 }
 
 function quoteSqliteIdentifier(name) {
