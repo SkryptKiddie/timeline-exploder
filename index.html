@@ -151,7 +151,18 @@
             <button id="clearFiltersBtn" class="tool-btn" type="button">Clear Filters</button>
             <button id="advancedSearchToggleBtn" class="tool-btn" type="button" aria-expanded="false">Advanced Query</button>
           </div>
-          <p id="status" class="status" aria-live="polite">Use File > Open, the Open File button, or drag and drop a file to load CSV/JSON/SQLite.</p>
+          <div class="status-wrap">
+            <div class="status-line">
+              <span id="loadingSpinner" class="loading-spinner hidden" aria-hidden="true"></span>
+              <p id="status" class="status" aria-live="polite">Use File > Open, the Open File button, or drag and drop a file to load CSV/JSON/SQLite.</p>
+            </div>
+            <div id="loadingProgressWrap" class="loading-progress hidden">
+              <div class="loading-progress-track">
+                <div id="loadingProgressBar" class="loading-progress-bar"></div>
+              </div>
+              <p id="loadingProgressText" class="loading-progress-text"></p>
+            </div>
+          </div>
           <div id="advancedSearchWrap" class="advanced-search-wrap hidden">
             <button id="advancedSearchRunBtn" class="tool-btn" type="button">Run</button>
             <button id="advancedSearchClearBtn" class="tool-btn" type="button">Clear</button>
@@ -232,28 +243,6 @@
         </div>
       </div>
 
-      <div id="rowDetailsOverlay" class="help-overlay row-details-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="rowDetailsTitle">
-        <div class="help-panel row-details-panel" role="document">
-          <div id="rowDetailsResizeHandle" class="row-details-resize-handle" aria-hidden="true"></div>
-          <div class="help-panel-header">
-            <h2 id="rowDetailsTitle" class="help-title">Row Details</h2>
-            <button id="rowDetailsCloseBtn" class="help-close-btn" type="button" aria-label="Close row details">&times;</button>
-          </div>
-          <div class="help-panel-body row-details-body">
-            <p id="rowDetailsMeta" class="row-details-meta"></p>
-            <pre id="rowDetailsLog" class="row-details-log"></pre>
-            <div class="cell-overlay-controls" aria-label="Row viewer display settings">
-              <label class="cell-font-label" for="rowFontSizeInput">Font size</label>
-              <button id="rowFontDecreaseBtn" class="tool-btn cell-font-btn" type="button" aria-label="Decrease row log font size">A-</button>
-              <input id="rowFontSizeInput" class="cell-font-slider" type="range" min="10" max="28" step="1" value="12" />
-              <button id="rowFontIncreaseBtn" class="tool-btn cell-font-btn" type="button" aria-label="Increase row log font size">A+</button>
-              <span id="rowFontSizeValue" class="cell-font-size-value" aria-live="polite">12px</span>
-              <button id="rowDetailsCopyBtn" class="tool-btn row-details-copy-btn" type="button" aria-label="Copy row log">Copy</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <section class="table-zone hidden" id="tableZone">
         <div id="fileTabs" class="file-tabs hidden" role="tablist" aria-label="Open files"></div>
         <div class="meta-row">
@@ -291,8 +280,31 @@
             <select id="sqliteTableSelect" class="sqlite-table-select" aria-label="Select SQLite table"></select>
           </label>
         </div>
-        <div class="table-scroll">
-          <table id="dataTable" class="data-table"></table>
+        <div class="table-content">
+          <div class="table-scroll">
+            <table id="dataTable" class="data-table"></table>
+          </div>
+          <div id="rowDetailsOverlay" class="row-details-overlay hidden" role="dialog" aria-labelledby="rowDetailsTitle">
+            <div class="help-panel row-details-panel" role="document">
+              <div id="rowDetailsResizeHandle" class="row-details-resize-handle" aria-hidden="true"></div>
+              <div class="help-panel-header">
+                <h2 id="rowDetailsTitle" class="help-title">Row Details</h2>
+                <button id="rowDetailsCloseBtn" class="help-close-btn" type="button" aria-label="Close row details">&times;</button>
+              </div>
+              <div class="help-panel-body row-details-body">
+                <p id="rowDetailsMeta" class="row-details-meta"></p>
+                <pre id="rowDetailsLog" class="row-details-log"></pre>
+                <div class="cell-overlay-controls" aria-label="Row viewer display settings">
+                  <label class="cell-font-label" for="rowFontSizeInput">Font size</label>
+                  <button id="rowFontDecreaseBtn" class="tool-btn cell-font-btn" type="button" aria-label="Decrease row log font size">A-</button>
+                  <input id="rowFontSizeInput" class="cell-font-slider" type="range" min="10" max="28" step="1" value="12" />
+                  <button id="rowFontIncreaseBtn" class="tool-btn cell-font-btn" type="button" aria-label="Increase row log font size">A+</button>
+                  <span id="rowFontSizeValue" class="cell-font-size-value" aria-live="polite">12px</span>
+                  <button id="rowDetailsCopyBtn" class="tool-btn row-details-copy-btn" type="button" aria-label="Copy row log">Copy</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div id="columnContextMenu" class="column-context-menu hidden" role="menu">
           <button id="contextMenuPin" class="context-menu-item" type="button" role="menuitem">Pin Column</button>

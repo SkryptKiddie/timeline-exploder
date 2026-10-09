@@ -45,6 +45,9 @@ These shortcuts are available after a dataset is loaded:
 - `Alt+F` Clear all filters
 - `Alt+V` Copy visible rows
 - `Alt+S` Copy selected rows
+- `Ctrl/Cmd+A` Select all cells in the table
+- `Ctrl/Cmd+C` Copy selected cells
+- `Ctrl/Cmd+Shift+C` Copy selected cells (or selected rows) as HTML
 - `Alt+B` Clear grouping (when grouping is active)
 - `Esc` Close open overlays/menus/context menus
 

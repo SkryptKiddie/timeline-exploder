@@ -21,6 +21,7 @@ const clearGroupByBtn = document.getElementById("clearGroupByBtn");
 const sqliteTableWrap = document.getElementById("sqliteTableWrap");
 const sqliteTableSelect = document.getElementById("sqliteTableSelect");
 const statusNode = document.getElementById("status");
+const loadingSpinner = document.getElementById("loadingSpinner");
 const loadingProgressWrap = document.getElementById("loadingProgressWrap");
 const loadingProgressBar = document.getElementById("loadingProgressBar");
 const loadingProgressText = document.getElementById("loadingProgressText");
@@ -123,10 +124,6 @@ const columnStatsAvgLength = document.getElementById("columnStatsAvgLength");
 const columnStatsMinLength = document.getElementById("columnStatsMinLength");
 const columnStatsMaxLength = document.getElementById("columnStatsMaxLength");
 const columnStatsTopValues = document.getElementById("columnStatsTopValues");
-
-if (tableZone && rowDetailsOverlay && rowDetailsOverlay.parentElement !== tableZone) {
-  tableZone.appendChild(rowDetailsOverlay);
-}
 
 const state = {
   headers: [],
@@ -1294,7 +1291,6 @@ helpOverlay.addEventListener("click", onHelpOverlayClick);
 cellOverlayCloseBtn.addEventListener("click", closeCellOverlay);
 cellOverlay.addEventListener("click", onCellOverlayClick);
 rowDetailsCloseBtn.addEventListener("click", closeRowDetailsOverlay);
-rowDetailsOverlay.addEventListener("click", onRowDetailsOverlayClick);
 columnStatsCloseBtn.addEventListener("click", closeColumnStatsOverlay);
 columnStatsOverlay.addEventListener("click", onColumnStatsOverlayClick);
 dataTable.addEventListener("dblclick", onDataTableDoubleClick);
@@ -1607,6 +1603,7 @@ async function loadFile(file) {
   showLoadingProgress(5, `Reading ${file.name}...`);
 
   try {
+    await yieldToBrowser();
     state.fileName = file.name;
     state.fileType = file.type || "";
     state.sqliteTables = [];
@@ -1627,7 +1624,7 @@ async function loadFile(file) {
     }
 
     showLoadingProgress(25, "Parsing file...");
-    await nextFrame();
+    await yieldToBrowser();
     await parseCurrentFile();
 
     showLoadingProgress(55, "Applying filters...");
@@ -1887,6 +1884,7 @@ async function onSqliteTableChange(event) {
 
   try {
     showLoadingProgress(35, `Loading table ${nextTable}...`);
+    await yieldToBrowser();
     await parseCurrentFile();
     applyFilters();
     await renderTable();
@@ -2024,7 +2022,36 @@ function onDocumentKeyDown(event) {
   const isMod = event.ctrlKey || event.metaKey;
   const isAltOnly = event.altKey && !isMod;
 
-  if (isMod && key === "c" && !isTyping && state.selectedCells.size) {
+  if (isMod && !event.shiftKey && !event.altKey && key === "a" && !isTyping && state.filteredRows.length) {
+    const visibleHeaders = getVisibleHeaders();
+    if (visibleHeaders.length) {
+      event.preventDefault();
+      const selected = new Set();
+      state.filteredRows.forEach((row) => {
+        visibleHeaders.forEach((header) => selected.add(getCellSelectionKey(row.__rowId, header)));
+      });
+      state.selectedCells = selected;
+      state.cellSelectionAnchor = { rowId: state.filteredRows[0].__rowId, header: visibleHeaders[0] };
+      state.activeCell = {
+        rowId: state.filteredRows[state.filteredRows.length - 1].__rowId,
+        header: visibleHeaders[visibleHeaders.length - 1]
+      };
+      syncCellSelectionInDom();
+      return;
+    }
+  }
+
+  if (isMod && event.shiftKey && key === "c" && !isTyping && (state.selectedCells.size || state.selectedRowIds.size)) {
+    event.preventDefault();
+    if (state.selectedCells.size) {
+      copySelectedCellsAsHtml();
+    } else {
+      copySelectedRowsAsHtml();
+    }
+    return;
+  }
+
+  if (isMod && !event.shiftKey && key === "c" && !isTyping && state.selectedCells.size) {
     event.preventDefault();
     copySelectedCells();
     return;
@@ -2328,6 +2355,12 @@ function onDataTableCellMouseDown(event) {
     return;
   }
 
+  // preventDefault below stops focus moving, so release any input still holding it
+  // (otherwise Ctrl+C is treated as typing and the cell copy is skipped).
+  if (isEditableTarget(document.activeElement)) {
+    document.activeElement.blur();
+  }
+
   state.selectedCells = new Set([getCellSelectionKey(anchor.rowId, anchor.header)]);
   state.cellSelectionAnchor = anchor;
   state.activeCell = anchor;
@@ -2443,12 +2476,6 @@ function onColumnStatsOverlayClick(event) {
 function closeRowDetailsOverlay() {
   rowDetailsOverlay.classList.add("hidden");
   delete rowDetailsOverlay.dataset.rowId;
-}
-
-function onRowDetailsOverlayClick(event) {
-  if (event.target === rowDetailsOverlay) {
-    closeRowDetailsOverlay();
-  }
 }
 
 function navigateRowDetails(direction) {
@@ -2813,10 +2840,10 @@ function onRowDetailsResizeMove(event) {
 
   const delta = rowDetailsResizeState.startX - event.clientX;
   const zoneWidth = tableZone.getBoundingClientRect().width || window.innerWidth;
-  const minWidth = 360;
-  const maxWidth = Math.max(minWidth, zoneWidth - 80);
+  const minWidth = 280;
+  const maxWidth = Math.max(minWidth, zoneWidth * 0.65);
   const nextWidth = Math.max(minWidth, Math.min(maxWidth, rowDetailsResizeState.startWidth + delta));
-  rowDetailsPanel.style.width = `${Math.round(nextWidth)}px`;
+  rowDetailsOverlay.style.flexBasis = `${Math.round(nextWidth)}px`;
 }
 
 function onRowDetailsResizeStop() {
@@ -4454,6 +4481,11 @@ function cancelPendingRender() {
 
 function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+async function yieldToBrowser() {
+  await nextFrame();
+  await new Promise((resolve) => window.setTimeout(resolve, 0));
 }
 
 async function appendItemsInBatches(tbody, items, appendItem, options = {}) {
@@ -6376,21 +6408,23 @@ function setStatus(message, type) {
 }
 
 function showLoadingProgress(percent, message) {
-  if (!loadingProgressWrap || !loadingProgressBar || !loadingProgressText) {
+  if (!loadingSpinner || !loadingProgressWrap || !loadingProgressBar || !loadingProgressText) {
     return;
   }
 
   const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  loadingSpinner.classList.remove("hidden");
   loadingProgressWrap.classList.remove("hidden");
   loadingProgressBar.style.width = `${safePercent}%`;
   loadingProgressText.textContent = message || "Processing file...";
 }
 
 function hideLoadingProgress() {
-  if (!loadingProgressWrap || !loadingProgressBar) {
+  if (!loadingSpinner || !loadingProgressWrap || !loadingProgressBar) {
     return;
   }
 
+  loadingSpinner.classList.add("hidden");
   loadingProgressWrap.classList.add("hidden");
   loadingProgressBar.style.width = "0%";
 }
