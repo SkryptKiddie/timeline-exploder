@@ -1,0 +1,431 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;700&display=swap');
+
+body[data-theme="cyberpunk"] {
+  --win-bg: #090409;
+  --win-panel: #141016;
+  --win-border: #5f0d1a;
+  --win-border-dark: #ff2b5b;
+  --win-text: #f2f2f0;
+  --win-muted: #b79aa4;
+  --win-select: rgba(255, 43, 91, 0.16);
+  --status-ok: #71f2b1;
+  --status-warn: #ffbf6d;
+  --help-header-bg: #1a0f16;
+  --help-header-text: #ffeaf0;
+}
+
+body[data-theme="cyberpunk"],
+body[data-theme="cyberpunk"] button,
+body[data-theme="cyberpunk"] input,
+body[data-theme="cyberpunk"] select,
+body[data-theme="cyberpunk"] textarea {
+  font-family: "Rajdhani", "Segoe UI", sans-serif;
+  letter-spacing: 0.015em;
+}
+
+body[data-theme="cyberpunk"] {
+  background:
+    radial-gradient(circle at top left, rgba(255, 0, 64, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(0, 209, 255, 0.16), transparent 24%),
+    linear-gradient(180deg, #1b0b11 0%, #090409 100%);
+}
+
+body[data-theme="cyberpunk"] .app-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 0, 64, 0.07) 0%, rgba(0, 0, 0, 0.15) 22%, rgba(0, 0, 0, 0.38) 100%),
+    linear-gradient(180deg, rgba(30, 8, 15, 0.96), rgba(9, 4, 9, 0.98));
+}
+
+body[data-theme="cyberpunk"] ::selection {
+  background: rgba(255, 225, 0, 0.45);
+  color: #ffffff;
+}
+
+body[data-theme="cyberpunk"] .file-drop-overlay {
+  background: rgba(6, 2, 5, 0.72);
+}
+
+body[data-theme="cyberpunk"] .file-drop-panel {
+  background: rgba(19, 8, 13, 0.96);
+  border-color: rgba(255, 43, 91, 0.95);
+  box-shadow: 0 0 0 1px rgba(0, 209, 255, 0.18), 0 24px 60px rgba(0, 0, 0, 0.7);
+}
+
+body[data-theme="cyberpunk"] .file-drop-title {
+  color: #f6d54f;
+}
+
+body[data-theme="cyberpunk"] .file-drop-subtitle {
+  color: #bba7b0;
+}
+
+body[data-theme="cyberpunk"] .top-chrome,
+body[data-theme="cyberpunk"] .menu-bar-wrap {
+  background: linear-gradient(180deg, #13090d 0%, #0f070a 100%);
+}
+
+body[data-theme="cyberpunk"] .menu-bar-wrap {
+  border-bottom: 1px solid rgba(255, 43, 91, 0.45);
+  box-shadow: inset 0 -1px 0 rgba(0, 209, 255, 0.18);
+}
+
+body[data-theme="cyberpunk"] .menu-bar {
+  border-top-color: rgba(0, 209, 255, 0.28);
+}
+
+body[data-theme="cyberpunk"] .menu-button {
+  color: #f2f2f0;
+  text-shadow: 0 0 12px rgba(0, 209, 255, 0.08);
+}
+
+body[data-theme="cyberpunk"] .menu-button:hover,
+body[data-theme="cyberpunk"] .menu-button[aria-expanded="true"] {
+  background: rgba(255, 43, 91, 0.18);
+  border-color: rgba(255, 43, 91, 0.6);
+  color: #ffe9ed;
+}
+
+body[data-theme="cyberpunk"] .menu-dropdown,
+body[data-theme="cyberpunk"] .menu-submenu,
+body[data-theme="cyberpunk"] .column-context-menu,
+body[data-theme="cyberpunk"] .field-context-menu {
+  background:
+    linear-gradient(180deg, rgba(36, 12, 19, 0.98), rgba(14, 7, 11, 0.98));
+  border-color: rgba(255, 43, 91, 0.7);
+  box-shadow:
+    0 0 0 1px rgba(0, 209, 255, 0.12) inset,
+    0 18px 36px rgba(0, 0, 0, 0.55);
+}
+
+body[data-theme="cyberpunk"] .menu-action,
+body[data-theme="cyberpunk"] .context-menu-item {
+  color: #f2eef0;
+}
+
+body[data-theme="cyberpunk"] .menu-action:hover,
+body[data-theme="cyberpunk"] .context-menu-item:hover {
+  background: rgba(0, 209, 255, 0.12);
+  border-color: rgba(0, 209, 255, 0.55);
+}
+
+body[data-theme="cyberpunk"] .menu-action[aria-checked="true"] {
+  background: rgba(255, 43, 91, 0.22);
+  color: #f6d54f;
+}
+
+body[data-theme="cyberpunk"] .controls {
+  background: linear-gradient(180deg, rgba(23, 10, 15, 0.94), rgba(16, 8, 12, 0.96));
+  border-bottom-color: rgba(255, 43, 91, 0.36);
+  box-shadow: inset 0 -1px 0 rgba(0, 209, 255, 0.08);
+}
+
+body[data-theme="cyberpunk"] .status {
+  color: #f5f0f3;
+}
+
+body[data-theme="cyberpunk"] .tool-btn {
+  background:
+    linear-gradient(180deg, rgba(36, 14, 21, 1), rgba(15, 7, 10, 1));
+  border-top-color: rgba(255, 43, 91, 0.72);
+  border-left-color: rgba(255, 43, 91, 0.72);
+  border-right-color: rgba(0, 209, 255, 0.24);
+  border-bottom-color: rgba(0, 209, 255, 0.24);
+  color: #f4edf0;
+  text-shadow: 0 0 10px rgba(255, 43, 91, 0.12);
+}
+
+body[data-theme="cyberpunk"] .tool-btn:hover {
+  background:
+    linear-gradient(180deg, rgba(47, 18, 27, 1), rgba(24, 10, 14, 1));
+  border-color: rgba(0, 209, 255, 0.46);
+}
+
+body[data-theme="cyberpunk"] .tool-btn:active {
+  background:
+    linear-gradient(180deg, rgba(15, 7, 10, 1), rgba(36, 14, 21, 1));
+}
+
+body[data-theme="cyberpunk"] .advanced-search-wrap {
+  background: rgba(18, 8, 12, 0.9);
+  border-top-color: rgba(255, 43, 91, 0.35);
+}
+
+body[data-theme="cyberpunk"] .advanced-search-input,
+body[data-theme="cyberpunk"] .global-search-input,
+body[data-theme="cyberpunk"] .find-input,
+body[data-theme="cyberpunk"] .time-window-input,
+body[data-theme="cyberpunk"] .sqlite-table-select,
+body[data-theme="cyberpunk"] .filter-input,
+body[data-theme="cyberpunk"] .filter-operator {
+  background: #10080c;
+  border-color: rgba(255, 43, 91, 0.42);
+  color: #f6eef1;
+}
+
+body[data-theme="cyberpunk"] .advanced-search-input:focus,
+body[data-theme="cyberpunk"] .global-search-input:focus,
+body[data-theme="cyberpunk"] .find-input:focus,
+body[data-theme="cyberpunk"] .time-window-input:focus,
+body[data-theme="cyberpunk"] .sqlite-table-select:focus,
+body[data-theme="cyberpunk"] .filter-input:focus,
+body[data-theme="cyberpunk"] .filter-operator:focus {
+  border-color: rgba(0, 209, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(0, 209, 255, 0.18);
+}
+
+body[data-theme="cyberpunk"] .loading-progress-track {
+  background: #211016;
+  border-color: rgba(255, 43, 91, 0.44);
+}
+
+body[data-theme="cyberpunk"] .loading-progress-bar {
+  background: linear-gradient(90deg, #ff2b5b, #00d1ff 60%, #f6d54f);
+  box-shadow: 0 0 18px rgba(255, 43, 91, 0.35);
+}
+
+body[data-theme="cyberpunk"] .loading-spinner {
+  color: #00d1ff;
+}
+
+body[data-theme="cyberpunk"] .loading-progress-text,
+body[data-theme="cyberpunk"] .find-count,
+body[data-theme="cyberpunk"] .global-search-wrap,
+body[data-theme="cyberpunk"] .find-wrap,
+body[data-theme="cyberpunk"] .time-window-wrap,
+body[data-theme="cyberpunk"] .sqlite-table-wrap,
+body[data-theme="cyberpunk"] .group-by-prefix,
+body[data-theme="cyberpunk"] .group-by-label,
+body[data-theme="cyberpunk"] .group-by-hint {
+  color: #cab8bf;
+}
+
+body[data-theme="cyberpunk"] .table-zone {
+  background:
+    linear-gradient(180deg, rgba(18, 7, 11, 0.94), rgba(10, 4, 7, 0.98));
+  border-top-color: rgba(255, 43, 91, 0.35);
+}
+
+body[data-theme="cyberpunk"] .meta-row {
+  background: linear-gradient(180deg, rgba(22, 10, 14, 0.96), rgba(14, 6, 9, 0.96));
+  border-bottom-color: rgba(255, 43, 91, 0.2);
+}
+
+body[data-theme="cyberpunk"] .file-tabs {
+  background: linear-gradient(180deg, #1a0e13, #12080c);
+  border-bottom-color: rgba(255, 43, 91, 0.35);
+}
+
+body[data-theme="cyberpunk"] .file-tab {
+  background: #201117;
+  border-color: rgba(255, 43, 91, 0.4);
+  color: #efe5e9;
+}
+
+body[data-theme="cyberpunk"] .file-tab.is-active {
+  background: #12080c;
+  border-bottom-color: #12080c;
+}
+
+body[data-theme="cyberpunk"] .file-tab-close {
+  color: #f6d54f;
+}
+
+body[data-theme="cyberpunk"] .group-by-zone {
+  background: rgba(19, 8, 13, 0.88);
+  border-color: rgba(255, 43, 91, 0.35);
+}
+
+body[data-theme="cyberpunk"] .group-by-chip {
+  background: rgba(255, 43, 91, 0.14);
+  border-color: rgba(0, 209, 255, 0.36);
+  color: #f3e8ec;
+}
+
+body[data-theme="cyberpunk"] .group-header-row td {
+  background: linear-gradient(180deg, rgba(37, 14, 21, 0.98), rgba(18, 8, 12, 0.98));
+  border-bottom-color: rgba(255, 43, 91, 0.35);
+  color: #f5ecf0;
+}
+
+body[data-theme="cyberpunk"] .group-header {
+  background: transparent;
+  border-bottom-color: rgba(0, 209, 255, 0.18);
+  color: inherit;
+}
+
+body[data-theme="cyberpunk"] .group-header:hover {
+  background: rgba(255, 43, 91, 0.08);
+}
+
+body[data-theme="cyberpunk"] .group-header-text {
+  color: inherit;
+}
+
+body[data-theme="cyberpunk"] .group-expand-toggle {
+  color: #f6d54f;
+}
+
+body[data-theme="cyberpunk"] .group-expand-toggle:hover {
+  color: #ffffff;
+}
+
+body[data-theme="cyberpunk"] .group-chip[data-tooltip]::after,
+body[data-theme="cyberpunk"] .group-chip-remove[data-tooltip]::after {
+  background: linear-gradient(180deg, rgba(30, 10, 17, 0.98), rgba(12, 6, 9, 0.98));
+  border-color: rgba(255, 43, 91, 0.8);
+  color: #f8eef2;
+  box-shadow: 0 0 0 1px rgba(0, 209, 255, 0.16) inset, 0 12px 24px rgba(0, 0, 0, 0.55);
+}
+
+body[data-theme="cyberpunk"] .group-chip[data-tooltip]::before,
+body[data-theme="cyberpunk"] .group-chip-remove[data-tooltip]::before {
+  border-top-color: rgba(255, 43, 91, 0.85);
+}
+
+body[data-theme="cyberpunk"] .data-table {
+  background: #10080b;
+}
+
+body[data-theme="cyberpunk"] .data-table th,
+body[data-theme="cyberpunk"] .data-table td {
+  border-right-color: rgba(255, 43, 91, 0.18);
+  border-bottom-color: rgba(255, 43, 91, 0.12);
+}
+
+body[data-theme="cyberpunk"] .data-table th,
+body[data-theme="cyberpunk"] .data-table th.selection-col {
+  background: linear-gradient(180deg, #231019, #160b10);
+  color: #ffeef1;
+}
+
+body[data-theme="cyberpunk"] .data-table td {
+  background: rgba(15, 8, 11, 0.96);
+  color: #f2ebee;
+}
+
+body[data-theme="cyberpunk"] .data-table td.row-number-cell {
+  background: #1a0d13;
+  color: #d9c4cb;
+}
+
+body[data-theme="cyberpunk"] .data-table td.selection-cell {
+  background: #14090d;
+}
+
+body[data-theme="cyberpunk"] .data-table td.pinned-cell,
+body[data-theme="cyberpunk"] .data-table th.pinned-col {
+  background: #231019;
+}
+
+body[data-theme="cyberpunk"] .data-table tr:hover td,
+body[data-theme="cyberpunk"] .data-table tr:hover td.selection-cell {
+  background: rgba(255, 43, 91, 0.1);
+}
+
+body[data-theme="cyberpunk"] .data-table td.find-match {
+  background: rgba(0, 209, 255, 0.18);
+}
+
+body[data-theme="cyberpunk"] .data-table tr:hover td.find-match {
+  background: rgba(0, 209, 255, 0.24);
+}
+
+body[data-theme="cyberpunk"] .data-table td.find-active-match {
+  background: rgba(255, 225, 0, 0.22);
+}
+
+body[data-theme="cyberpunk"] .cell-selected {
+  box-shadow: inset 0 0 0 1px rgba(0, 209, 255, 0.55);
+}
+
+body[data-theme="cyberpunk"] .row-selected td,
+body[data-theme="cyberpunk"] .row-selected td.selection-cell {
+  background: rgba(255, 43, 91, 0.14);
+}
+
+body[data-theme="cyberpunk"] .help-panel,
+body[data-theme="cyberpunk"] .cell-panel,
+body[data-theme="cyberpunk"] .column-stats-panel,
+body[data-theme="cyberpunk"] .row-details-panel {
+  background: linear-gradient(180deg, rgba(19, 8, 12, 0.98), rgba(10, 4, 7, 0.98));
+  border-color: rgba(255, 43, 91, 0.42);
+  box-shadow: 0 0 0 1px rgba(0, 209, 255, 0.08) inset, 0 18px 36px rgba(0, 0, 0, 0.6);
+}
+
+body[data-theme="cyberpunk"] .help-title,
+body[data-theme="cyberpunk"] .column-stats-title,
+body[data-theme="cyberpunk"] .row-details-title {
+  color: #f6d54f;
+}
+
+body[data-theme="cyberpunk"] .help-panel-header {
+  background: linear-gradient(180deg, #1e0d14, #13080d);
+  border-bottom-color: rgba(255, 43, 91, 0.32);
+}
+
+body[data-theme="cyberpunk"] .help-close-btn {
+  color: #ff7c99;
+}
+
+body[data-theme="cyberpunk"] .cell-overlay-value,
+body[data-theme="cyberpunk"] .row-details-log,
+body[data-theme="cyberpunk"] .row-details-list,
+body[data-theme="cyberpunk"] .row-details-value {
+  background: #10080c;
+  border-color: rgba(255, 43, 91, 0.34);
+  color: #f4ebef;
+}
+
+body[data-theme="cyberpunk"] .row-details-key {
+  background: #1d0d13;
+  border-right-color: rgba(255, 43, 91, 0.34);
+  color: #ffdbe5;
+}
+
+body[data-theme="cyberpunk"] .column-stats-item,
+body[data-theme="cyberpunk"] .column-stats-top-values {
+  background: #10080c;
+  border-color: rgba(255, 43, 91, 0.34);
+}
+
+body[data-theme="cyberpunk"] .column-stats-top-values li {
+  border-bottom-color: rgba(255, 43, 91, 0.18);
+}
+
+body[data-theme="cyberpunk"] .cell-token-key {
+  color: #ff9f6d;
+}
+
+body[data-theme="cyberpunk"] .cell-token-string {
+  color: #82dcff;
+}
+
+body[data-theme="cyberpunk"] .cell-token-number {
+  color: #d6a7ff;
+}
+
+body[data-theme="cyberpunk"] .cell-token-boolean,
+body[data-theme="cyberpunk"] .cell-token-null {
+  color: #79efb9;
+}
+
+body[data-theme="cyberpunk"] .cell-token-url,
+body[data-theme="cyberpunk"] .cell-token-email,
+body[data-theme="cyberpunk"] .cell-token-uuid,
+body[data-theme="cyberpunk"] .cell-token-datetime {
+  color: #00d1ff;
+}
+
+body[data-theme="cyberpunk"] .loading-spinner,
+body[data-theme="cyberpunk"] .help-close-btn:hover,
+body[data-theme="cyberpunk"] .file-tab-close:hover,
+body[data-theme="cyberpunk"] .tool-btn:hover {
+  filter: drop-shadow(0 0 10px rgba(255, 43, 91, 0.15));
+}
+
+body[data-theme="cyberpunk"] .filter-pill,
+body[data-theme="cyberpunk"] .time-window-chip,
+body[data-theme="cyberpunk"] .group-by-chip,
+body[data-theme="cyberpunk"] .sort-indicator {
+  text-shadow: 0 0 10px rgba(0, 209, 255, 0.16);
+}

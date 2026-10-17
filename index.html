@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Timeline Exploder</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="themes/theme-dark.css" />
+    <link rel="stylesheet" href="themes/theme-material.css" />
+    <link rel="stylesheet" href="themes/theme-ios.css" />
+    <link rel="stylesheet" href="themes/theme-adx.css" />
+    <link rel="stylesheet" href="themes/theme-cyberpunk.css" />
+    <link rel="stylesheet" href="themes/theme-windows-xp.css" />
     <link rel="icon" type="image/x-icon" href="favicon.ico">
   </head>
   <body data-theme="material-light">
@@ -126,8 +132,8 @@
                     <button id="themeWindowsXpMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
                       Windows XP
                     </button>
-                    <button id="themeNeonPartyMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
-                      Neon
+                    <button id="themeCyberpunkMenuItem" class="menu-action" type="button" role="menuitemcheckbox" aria-checked="false">
+                      Cyberpunk
                     </button>
                   </div>
                 </div>
@@ -141,7 +147,7 @@
           </nav>
         </header>
 
-        <input id="fileInput" class="hidden-file-input" type="file" multiple />
+        <input id="fileInput" class="hidden-file-input" type="file" multiple accept=".csv,.tsv,.json,.db,.sqlite,.sqlite3,text/csv,text/plain,text/tab-separated-values,application/json,application/vnd.sqlite3,application/x-sqlite3" />
 
         <section class="controls">
           <div class="toolbar">
@@ -329,6 +335,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.min.js"></script>
+    <script src="themes/theme-app.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

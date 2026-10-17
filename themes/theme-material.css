@@ -1,0 +1,496 @@
+body[data-theme="material-light"] {
+  --win-bg: #f5f7fa;
+  --win-panel: #ffffff;
+  --win-border: #d7dee5;
+  --win-border-dark: #a8b3bd;
+  --win-text: #1f2933;
+  --win-muted: #60707f;
+  --win-select: rgba(25, 118, 210, 0.1);
+  --status-ok: #2e7d32;
+  --status-warn: #c62828;
+  --help-header-bg: #ffffff;
+  --help-header-text: #1f2933;
+  --material-primary: #1976d2;
+  --material-primary-strong: #0d47a1;
+  --material-surface: #ffffff;
+  --material-surface-alt: #f4f7fa;
+  --material-surface-strong: #eef3f7;
+  --material-outline: #d7dee5;
+  --material-outline-strong: #a8b3bd;
+  --material-divider: #dfe6ec;
+  --material-hover: rgba(25, 118, 210, 0.08);
+  --material-active: rgba(25, 118, 210, 0.14);
+  --material-shadow-1: 0 1px 3px rgba(16, 24, 40, 0.12), 0 1px 2px rgba(16, 24, 40, 0.08);
+  --material-shadow-2: 0 8px 24px rgba(16, 24, 40, 0.14), 0 2px 6px rgba(16, 24, 40, 0.08);
+  --material-overlay: rgba(16, 24, 40, 0.18);
+  color-scheme: light;
+}
+
+body[data-theme="material-dark"] {
+  --win-bg: #121212;
+  --win-panel: #1e1e1e;
+  --win-border: #334155;
+  --win-border-dark: #475569;
+  --win-text: #e8eef5;
+  --win-muted: #b0bccb;
+  --win-select: rgba(144, 202, 249, 0.12);
+  --status-ok: #81c784;
+  --status-warn: #ffab91;
+  --help-header-bg: #1b1f24;
+  --help-header-text: #e8eef5;
+  --material-primary: #90caf9;
+  --material-primary-strong: #64b5f6;
+  --material-surface: #1e1e1e;
+  --material-surface-alt: #232a31;
+  --material-surface-strong: #27313a;
+  --material-outline: #394857;
+  --material-outline-strong: #536679;
+  --material-divider: #2f3b47;
+  --material-hover: rgba(144, 202, 249, 0.08);
+  --material-active: rgba(144, 202, 249, 0.14);
+  --material-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.44);
+  --material-shadow-2: 0 14px 30px rgba(0, 0, 0, 0.5);
+  --material-overlay: rgba(7, 10, 14, 0.58);
+  color-scheme: dark;
+}
+
+body[data-theme^="material-"] {
+  background: var(--win-bg);
+  font-family: "Roboto", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  accent-color: var(--material-primary);
+}
+
+body[data-theme^="material-"] .menu-bar-wrap {
+  background: var(--material-surface);
+  box-shadow: var(--material-shadow-1);
+}
+
+body[data-theme^="material-"] .file-drop-overlay {
+  background: var(--material-overlay);
+}
+
+body[data-theme^="material-"] .file-drop-panel {
+  width: min(560px, 92vw);
+  padding: 24px 28px;
+  border: 2px solid var(--material-primary);
+  border-radius: 24px;
+  background: var(--material-surface);
+  box-shadow: var(--material-shadow-2);
+  text-align: center;
+}
+
+body[data-theme^="material-"] .file-drop-title {
+  color: var(--material-primary-strong);
+}
+
+body[data-theme^="material-"] .file-drop-subtitle {
+  color: var(--win-muted);
+}
+
+body[data-theme^="material-"] .menu-bar {
+  border-top-color: transparent;
+}
+
+body[data-theme^="material-"] .menu-button {
+  border-radius: 8px;
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+body[data-theme^="material-"] .menu-button:hover,
+body[data-theme^="material-"] .menu-button[aria-expanded="true"] {
+  background: var(--material-hover);
+  border-color: var(--material-outline-strong);
+}
+
+body[data-theme^="material-"] .menu-dropdown,
+body[data-theme^="material-"] .menu-submenu,
+body[data-theme^="material-"] .column-context-menu,
+body[data-theme^="material-"] .field-context-menu {
+  background: var(--material-surface);
+  border-color: var(--material-outline);
+  border-radius: 12px;
+  box-shadow: var(--material-shadow-2);
+  color: var(--win-text);
+}
+
+body[data-theme^="material-"] .menu-action,
+body[data-theme^="material-"] .context-menu-item {
+  color: var(--win-text);
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 0 16px;
+}
+
+body[data-theme^="material-"] .menu-action:hover,
+body[data-theme^="material-"] .context-menu-item:hover {
+  border-color: transparent;
+  background: var(--material-hover);
+}
+
+body[data-theme^="material-"] .controls {
+  border-bottom-color: var(--material-divider);
+  background: var(--material-surface);
+  box-shadow: var(--material-shadow-1);
+}
+
+body[data-theme^="material-"] .toolbar {
+  gap: 8px;
+}
+
+body[data-theme^="material-"] .tool-btn {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--material-primary);
+  box-shadow: none;
+  font-weight: 500;
+  letter-spacing: 0.089em;
+  text-transform: uppercase;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+body[data-theme^="material-"] .tool-btn:hover {
+  background: var(--material-hover);
+  box-shadow: none;
+}
+
+body[data-theme^="material-"] .tool-btn:active {
+  background: var(--material-active);
+  box-shadow: none;
+}
+
+body[data-theme^="material-"] .toolbar #openFileBtn {
+  background: var(--material-primary);
+  color: #ffffff;
+  box-shadow: var(--material-shadow-1);
+}
+
+body[data-theme^="material-"] .toolbar #openFileBtn:hover {
+  background: var(--material-primary-strong);
+  box-shadow: var(--material-shadow-2);
+}
+
+body[data-theme^="material-"] .toolbar #openFileBtn:active {
+  background: var(--material-primary-strong);
+  box-shadow: none;
+}
+
+body[data-theme^="material-"] .toolbar #copySelectedBtn,
+body[data-theme^="material-"] .toolbar #advancedSearchToggleBtn {
+  border: 1px solid var(--material-outline);
+  background: var(--material-surface);
+}
+
+body[data-theme^="material-"] .toolbar #copySelectedBtn:hover,
+body[data-theme^="material-"] .toolbar #advancedSearchToggleBtn:hover {
+  background: var(--material-hover);
+  box-shadow: var(--material-shadow-1);
+}
+
+body[data-theme^="material-"] .toolbar #copySelectedBtn:active,
+body[data-theme^="material-"] .toolbar #advancedSearchToggleBtn:active {
+  background: var(--material-active);
+  box-shadow: none;
+}
+
+body[data-theme^="material-"] .advanced-search-input,
+body[data-theme^="material-"] .global-search-input,
+body[data-theme^="material-"] .find-input,
+body[data-theme^="material-"] .time-window-select,
+body[data-theme^="material-"] .time-window-input,
+body[data-theme^="material-"] .sqlite-table-select,
+body[data-theme^="material-"] .filter-input,
+body[data-theme^="material-"] .filter-operator {
+  min-height: 36px;
+  border-color: var(--material-outline);
+  border-radius: 4px;
+  background: var(--material-surface);
+  color: var(--win-text);
+}
+
+body[data-theme^="material-"] .advanced-search-input:focus,
+body[data-theme^="material-"] .global-search-input:focus,
+body[data-theme^="material-"] .find-input:focus,
+body[data-theme^="material-"] .time-window-select:focus,
+body[data-theme^="material-"] .time-window-input:focus,
+body[data-theme^="material-"] .sqlite-table-select:focus,
+body[data-theme^="material-"] .filter-input:focus,
+body[data-theme^="material-"] .filter-operator:focus {
+  outline: none;
+  border-color: var(--material-primary);
+  box-shadow: 0 0 0 1px var(--material-primary);
+}
+
+body[data-theme^="material-"] .advanced-search-input::placeholder,
+body[data-theme^="material-"] .global-search-input::placeholder,
+body[data-theme^="material-"] .find-input::placeholder,
+body[data-theme^="material-"] .time-window-input::placeholder,
+body[data-theme^="material-"] .filter-input::placeholder {
+  color: var(--win-muted);
+}
+
+body[data-theme^="material-"] .status.ok {
+  color: var(--status-ok);
+}
+
+body[data-theme^="material-"] .status.warn {
+  color: var(--status-warn);
+}
+
+body[data-theme^="material-"] .status-wrap {
+  color: var(--win-muted);
+}
+
+body[data-theme^="material-"] .loading-spinner {
+  color: var(--material-primary);
+}
+
+body[data-theme^="material-"] .loading-progress {
+  width: min(360px, 100%);
+}
+
+body[data-theme^="material-"] .loading-progress-track {
+  height: 6px;
+  border: 1px solid var(--material-outline);
+  border-radius: 999px;
+  background: var(--material-surface-strong);
+  overflow: hidden;
+}
+
+body[data-theme^="material-"] .loading-progress-bar {
+  background: linear-gradient(90deg, var(--material-primary), var(--material-primary-strong));
+}
+
+body[data-theme^="material-"] .loading-progress-text,
+body[data-theme^="material-"] .find-count,
+body[data-theme^="material-"] .global-search-wrap,
+body[data-theme^="material-"] .find-wrap,
+body[data-theme^="material-"] .time-window-wrap,
+body[data-theme^="material-"] .sqlite-table-wrap,
+body[data-theme^="material-"] .group-by-prefix,
+body[data-theme^="material-"] .group-by-label,
+body[data-theme^="material-"] .group-by-hint {
+  color: var(--win-muted);
+}
+
+body[data-theme^="material-"] .file-tabs {
+  background: var(--material-surface-alt);
+  border-bottom-color: var(--material-divider);
+}
+
+body[data-theme^="material-"] .file-tab {
+  background: var(--material-surface);
+  border-color: transparent;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  color: var(--win-muted);
+  box-shadow: none;
+  transition: background-color 120ms ease, box-shadow 120ms ease, color 120ms ease;
+}
+
+body[data-theme^="material-"] .file-tab:hover {
+  background: var(--material-hover);
+  box-shadow: none;
+}
+
+body[data-theme^="material-"] .file-tab:active {
+  background: var(--material-active);
+}
+
+body[data-theme^="material-"] .file-tab.is-active {
+  background: var(--material-surface);
+  color: var(--win-text);
+  box-shadow: inset 0 -3px 0 var(--material-primary);
+}
+
+body[data-theme^="material-"] .file-tab-close {
+  opacity: 0.88;
+}
+
+body[data-theme^="material-"] .meta-row,
+body[data-theme^="material-"] .table-zone {
+  background: var(--material-surface);
+  border-color: var(--material-divider);
+}
+
+body[data-theme^="material-"] .table-zone {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+body[data-theme^="material-"] .data-table {
+  background: var(--material-surface);
+}
+
+body[data-theme^="material-"] .data-table th,
+body[data-theme^="material-"] .data-table td {
+  border-right-color: var(--material-divider);
+  border-bottom-color: var(--material-divider);
+}
+
+body[data-theme^="material-"] .data-table th,
+body[data-theme^="material-"] .data-table th.selection-col {
+  background: var(--material-surface-strong);
+  color: var(--win-text);
+  font-weight: 500;
+}
+
+body[data-theme^="material-"] .data-table td {
+  background: var(--material-surface);
+  color: var(--win-text);
+}
+
+body[data-theme^="material-"] .data-table td.selection-cell {
+  background: var(--material-surface);
+}
+
+body[data-theme^="material-"] .data-table td.row-number-cell,
+body[data-theme^="material-"] .data-table td.pinned-cell {
+  background: var(--material-surface-alt);
+  color: var(--win-muted);
+}
+
+body[data-theme^="material-"] .data-table th.pinned-col {
+  background: var(--material-surface-strong);
+}
+
+body[data-theme^="material-"] .data-table tr:hover td,
+body[data-theme^="material-"] .data-table tr:hover td.selection-cell {
+  background: var(--material-hover);
+}
+
+body[data-theme^="material-"] .data-table td.find-match {
+  background: rgba(25, 118, 210, 0.12);
+}
+
+body[data-theme^="material-"] .data-table tr:hover td.find-match {
+  background: rgba(25, 118, 210, 0.18);
+}
+
+body[data-theme^="material-"] .data-table td.find-active-match {
+  background: rgba(25, 118, 210, 0.26);
+  outline-color: var(--material-primary);
+}
+
+body[data-theme^="material-"] .group-by-zone {
+  border-color: var(--material-outline);
+  border-radius: 12px;
+  background: var(--material-surface-alt);
+}
+
+body[data-theme^="material-"] .group-by-zone[data-drop-active="true"] {
+  border-color: var(--material-primary);
+  background: var(--win-select);
+}
+
+body[data-theme^="material-"] .group-chip {
+  border-color: var(--material-outline);
+  border-radius: 999px;
+  background: var(--material-surface-strong);
+  color: var(--win-text);
+}
+
+body[data-theme^="material-"] .group-chip-connector {
+  border-left-color: var(--material-outline-strong);
+  border-bottom-color: var(--material-outline-strong);
+}
+
+body[data-theme^="material-"] .group-header {
+  background: var(--material-surface-strong);
+  border-bottom-color: var(--material-divider);
+}
+
+body[data-theme^="material-"] .group-header:hover,
+body[data-theme^="material-"] .group-content tr:hover td {
+  background: var(--material-hover);
+}
+
+body[data-theme^="material-"] .group-content td {
+  border-right-color: var(--material-divider);
+  border-bottom-color: var(--material-divider);
+}
+
+body[data-theme^="material-"] .cell-overlay-value,
+body[data-theme^="material-"] .column-stats-item,
+body[data-theme^="material-"] .column-stats-top-values,
+body[data-theme^="material-"] .row-details-log,
+body[data-theme^="material-"] .row-details-list,
+body[data-theme^="material-"] .row-details-value {
+  background: var(--material-surface);
+  border-color: var(--material-outline);
+  color: var(--win-text);
+}
+
+body[data-theme^="material-"] .row-details-key {
+  background: var(--material-surface-alt);
+  border-right-color: var(--material-outline);
+  color: var(--win-muted);
+}
+
+body[data-theme^="material-"] .column-stats-top-values li {
+  border-bottom-color: var(--material-divider);
+}
+
+body[data-theme^="material-"] .help-panel,
+body[data-theme^="material-"] .cell-panel,
+body[data-theme^="material-"] .row-details-panel,
+body[data-theme^="material-"] .column-stats-overlay > div {
+  background: var(--material-surface);
+  box-shadow: var(--material-shadow-2);
+}
+
+body[data-theme^="material-"] .help-panel-header {
+  background: var(--help-header-bg);
+  color: var(--help-header-text);
+  border-bottom: 1px solid var(--material-divider);
+}
+
+body[data-theme^="material-"] .cell-panel-body,
+body[data-theme^="material-"] .help-panel-body {
+  background: var(--material-surface);
+}
+
+body[data-theme^="material-"] .cell-overlay-meta {
+  color: var(--win-muted);
+}
+
+body[data-theme^="material-"] .help-close-btn,
+body[data-theme^="material-"] .cell-font-btn,
+body[data-theme^="material-"] .row-details-copy-btn {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--material-primary);
+  box-shadow: none;
+  min-height: 36px;
+}
+
+body[data-theme^="material-"] .help-close-btn:hover,
+body[data-theme^="material-"] .cell-font-btn:hover,
+body[data-theme^="material-"] .row-details-copy-btn:hover {
+  background: var(--material-hover);
+}
+
+body[data-theme^="material-"] .help-close-btn:active,
+body[data-theme^="material-"] .cell-font-btn:active,
+body[data-theme^="material-"] .row-details-copy-btn:active {
+  background: var(--material-active);
+}
+
+body[data-theme^="material-"] .help-close-btn {
+  width: 36px;
+  height: 36px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+body[data-theme^="material-"] .cell-font-btn {
+  min-width: 40px;
+  padding: 0 12px;
+}
+
+body[data-theme^="material-"] .row-details-copy-btn {
+  padding: 0 16px;
+}
+

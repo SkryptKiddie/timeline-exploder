@@ -52,16 +52,6 @@ const firstRowHeaderMenuItem = document.getElementById("firstRowHeaderMenuItem")
 const wordWrapMenuItem = document.getElementById("wordWrapMenuItem");
 const lineNumberVisibleMenuItem = document.getElementById("lineNumberVisibleMenuItem");
 const themeMenuItem = document.getElementById("themeMenuItem");
-const themeLightMenuItem = document.getElementById("themeLightMenuItem");
-const themeDarkMenuItem = document.getElementById("themeDarkMenuItem");
-const themeMaterialLightMenuItem = document.getElementById("themeMaterialLightMenuItem");
-const themeMaterialDarkMenuItem = document.getElementById("themeMaterialDarkMenuItem");
-const themeAdxLightMenuItem = document.getElementById("themeAdxLightMenuItem");
-const themeAdxDarkMenuItem = document.getElementById("themeAdxDarkMenuItem");
-const themeIosLightMenuItem = document.getElementById("themeIosLightMenuItem");
-const themeIosDarkMenuItem = document.getElementById("themeIosDarkMenuItem");
-const themeNeonPartyMenuItem = document.getElementById("themeNeonPartyMenuItem");
-const themeWindowsXpMenuItem = document.getElementById("themeWindowsXpMenuItem");
 const timeWindowMenuItem = document.getElementById("timeWindowMenuItem");
 const timeWindowColumnMenu = document.getElementById("timeWindowColumnMenu");
 const timeWindowEnabledMenuItem = document.getElementById("timeWindowEnabledMenuItem");
@@ -257,25 +247,13 @@ const tabDragState = {
 const RENDER_BATCH_SIZE = 350;
 const RENDER_PROGRESS_MIN_ROWS = 1200;
 const AUTO_VIRTUALIZE_THRESHOLD_BYTES = 1024 * 1024;
-const THEME_STORAGE_KEY = "timelineExploderTheme";
 const ROW_NUMBER_VISIBILITY_STORAGE_KEY = "timelineExploderShowRowNumbers";
 const CELL_OVERLAY_FONT_MIN = 10;
 const CELL_OVERLAY_FONT_MAX = 28;
 const FILE_TAB_LABEL_MAX = 28;
-const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "ios-light", "ios-dark", "adx-light", "adx-dark", "neon-party", "windows-xp"]);
 const ADVANCED_FIELD_DRAG_MIME = "application/x-timeline-exploder-header";
-const THEME_LABELS = {
-  "material-light": "Material Light",
-  "material-dark": "Material Dark",
-  light: "Classic Light",
-  dark: "Classic Dark",
-  "adx-light": "ADX Light",
-  "adx-dark": "ADX Dark",
-  "ios-light": "iOS Light",
-  "ios-dark": "iOS Dark",
-  "neon-party": "Neon",
-  "windows-xp": "Windows XP"
-};
+const BLOCKED_UPLOAD_MIME_PREFIXES = ["image/", "video/", "audio/", "font/"];
+const BLOCKED_UPLOAD_MIME_TYPES = new Set(["application/pdf", "application/zip", "application/x-zip-compressed", "application/x-rar-compressed", "application/x-7z-compressed"]);
 let sqlJsInitPromise = null;
 let cellOverlayFontSize = 12;
 let rowDetailsFontSize = 12;
@@ -1405,56 +1383,6 @@ fieldMenuVirusTotal.addEventListener("click", () => {
   lookupFieldInVirusTotal();
 });
 
-themeLightMenuItem.addEventListener("click", () => {
-  closeAllMenus();
-  setTheme("light");
-});
-
-themeDarkMenuItem.addEventListener("click", () => {
-  closeAllMenus();
-  setTheme("dark");
-});
-
-themeMaterialLightMenuItem.addEventListener("click", () => {
-  closeAllMenus();
-  setTheme("material-light");
-});
-
-themeMaterialDarkMenuItem.addEventListener("click", () => {
-  closeAllMenus();
-  setTheme("material-dark");
-});
-
-themeAdxLightMenuItem.addEventListener("click", () => {
-  closeAllMenus();
-  setTheme("adx-light");
-});
-
-themeAdxDarkMenuItem.addEventListener("click", () => {
-  closeAllMenus();
-  setTheme("adx-dark");
-});
-
-themeIosLightMenuItem.addEventListener("click", () => {
-  closeAllMenus();
-  setTheme("ios-light");
-});
-
-themeIosDarkMenuItem.addEventListener("click", () => {
-  closeAllMenus();
-  setTheme("ios-dark");
-});
-
-themeNeonPartyMenuItem.addEventListener("click", () => {
-  closeAllMenus();
-  setTheme("neon-party");
-});
-
-themeWindowsXpMenuItem.addEventListener("click", () => {
-  closeAllMenus();
-  setTheme("windows-xp");
-});
-
 hideEmptyColsMenuItem.addEventListener("click", () => {
   closeAllMenus();
   toggleHideEmptyCols();
@@ -1568,9 +1496,87 @@ async function loadFiles(files) {
     return;
   }
 
+  const acceptedFiles = [];
+  let rejectedCount = 0;
+
   for (const file of list) {
+    if (await isSupportedUploadFile(file)) {
+      acceptedFiles.push(file);
+    } else {
+      rejectedCount += 1;
+    }
+  }
+
+  if (!acceptedFiles.length) {
+    if (rejectedCount) {
+      setStatus("No compatible files selected.", "warn");
+    }
+    return;
+  }
+
+  if (rejectedCount) {
+    setStatus(`Skipped ${rejectedCount} incompatible file${rejectedCount === 1 ? "" : "s"}.`, "warn");
+  }
+
+  for (const file of acceptedFiles) {
     await loadFile(file);
   }
+}
+
+function getFileExtension(fileName) {
+  const fileNameParts = String(fileName || "").toLowerCase().split(".");
+  return fileNameParts.length > 1 ? fileNameParts[fileNameParts.length - 1] : "";
+}
+
+function isBlockedUploadMime(type) {
+  if (!type) {
+    return false;
+  }
+
+  if (BLOCKED_UPLOAD_MIME_PREFIXES.some((prefix) => type.startsWith(prefix))) {
+    return true;
+  }
+
+  return BLOCKED_UPLOAD_MIME_TYPES.has(type);
+}
+
+async function looksLikeTextFile(file) {
+  try {
+    const sample = new Uint8Array(await file.slice(0, 4096).arrayBuffer());
+    return !sample.includes(0);
+  } catch (error) {
+    return true;
+  }
+}
+
+async function isSupportedUploadFile(file) {
+  if (!file) {
+    return false;
+  }
+
+  const type = String(file.type || "").toLowerCase();
+  if (isBlockedUploadMime(type)) {
+    return false;
+  }
+
+  const extension = getFileExtension(file.name);
+  if (extension === "csv" || extension === "tsv" || extension === "json" || extension === "db" || extension === "sqlite" || extension === "sqlite3") {
+    return true;
+  }
+
+  if (type === "application/vnd.sqlite3" || type === "application/x-sqlite3") {
+    return true;
+  }
+
+  if (await detectSqliteFile(file)) {
+    return true;
+  }
+
+  if (!type || type === "application/octet-stream" || type.startsWith("text/")) {
+    return looksLikeTextFile(file);
+  }
+
+  return false;
 }
 
 async function loadFile(file) {
@@ -1594,9 +1600,6 @@ async function loadFile(file) {
 
   // Default virtualization behavior is based on incoming file size.
   state.virtualizedRendering = file.size >= AUTO_VIRTUALIZE_THRESHOLD_BYTES;
-  if (state.virtualizedRendering && state.wordWrap) {
-    state.wordWrap = false;
-  }
   syncMenuCheckboxStates();
 
   setStatus(`Reading ${file.name}...`);
@@ -3119,12 +3122,12 @@ async function toggleFirstRowIsHeader() {
 
 function toggleWordWrap() {
   state.wordWrap = !state.wordWrap;
-  if (state.wordWrap && state.virtualizedRendering) {
-    state.virtualizedRendering = false;
-    detachVirtualScrollHandler();
-  }
   syncMenuCheckboxStates();
-  applyWordWrapClass();
+  if (state.virtualizedRendering) {
+    renderTable();
+  } else {
+    applyWordWrapClass();
+  }
   setStatus(`Word Wrap Fields: ${state.wordWrap ? "On" : "Off"}.`, "ok");
 }
 
@@ -3136,23 +3139,6 @@ function toggleRowNumberVisibility() {
   setStatus(`Line numbers: ${state.showRowNumbers ? "On" : "Off"}.`, "ok");
 }
 
-function setTheme(theme) {
-  if (!SUPPORTED_THEMES.has(theme) || state.theme === theme) {
-    syncMenuCheckboxStates();
-    applyTheme();
-    return;
-  }
-
-  state.theme = theme;
-  persistThemePreference(theme);
-  applyTheme();
-  if (state.rowColorByColumn) {
-    renderTable();
-  }
-  syncMenuCheckboxStates();
-  setStatus(`Theme: ${THEME_LABELS[state.theme] || state.theme}.`, "ok");
-}
-
 function toggleHideEmptyCols() {
   state.hideEmptyCols = !state.hideEmptyCols;
   syncMenuCheckboxStates();
@@ -3162,11 +3148,6 @@ function toggleHideEmptyCols() {
 
 function toggleVirtualizedRendering() {
   state.virtualizedRendering = !state.virtualizedRendering;
-
-  if (state.virtualizedRendering && state.wordWrap) {
-    state.wordWrap = false;
-    applyWordWrapClass();
-  }
 
   syncMenuCheckboxStates();
   renderTable();
@@ -3188,43 +3169,6 @@ function getVisibleHeaders() {
   return [...pinned, ...unpinned.filter((h) => !pinned.includes(h))];
 }
 
-function syncMenuCheckboxStates() {
-  firstRowHeaderMenuItem.setAttribute("aria-checked", state.firstRowIsHeader ? "true" : "false");
-  wordWrapMenuItem.setAttribute("aria-checked", state.wordWrap ? "true" : "false");
-  lineNumberVisibleMenuItem.setAttribute("aria-checked", state.showRowNumbers ? "true" : "false");
-  themeLightMenuItem.setAttribute("aria-checked", state.theme === "light" ? "true" : "false");
-  themeDarkMenuItem.setAttribute("aria-checked", state.theme === "dark" ? "true" : "false");
-  themeMaterialLightMenuItem.setAttribute("aria-checked", state.theme === "material-light" ? "true" : "false");
-  themeMaterialDarkMenuItem.setAttribute("aria-checked", state.theme === "material-dark" ? "true" : "false");
-  themeAdxLightMenuItem.setAttribute("aria-checked", state.theme === "adx-light" ? "true" : "false");
-  themeAdxDarkMenuItem.setAttribute("aria-checked", state.theme === "adx-dark" ? "true" : "false");
-  themeIosLightMenuItem.setAttribute("aria-checked", state.theme === "ios-light" ? "true" : "false");
-  themeIosDarkMenuItem.setAttribute("aria-checked", state.theme === "ios-dark" ? "true" : "false");
-  themeNeonPartyMenuItem.setAttribute("aria-checked", state.theme === "neon-party" ? "true" : "false");
-  themeWindowsXpMenuItem.setAttribute("aria-checked", state.theme === "windows-xp" ? "true" : "false");
-  hideEmptyColsMenuItem.setAttribute("aria-checked", state.hideEmptyCols ? "true" : "false");
-  virtualizedRenderMenuItem.setAttribute("aria-checked", state.virtualizedRendering ? "true" : "false");
-}
-
-function applyTheme() {
-  if (state.theme === "light") {
-    document.body.removeAttribute("data-theme");
-  } else {
-    document.body.setAttribute("data-theme", state.theme);
-  }
-}
-
-function loadThemePreference() {
-  try {
-    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-    if (SUPPORTED_THEMES.has(storedTheme)) {
-      state.theme = storedTheme;
-    }
-  } catch (error) {
-    console.warn("Theme preference could not be read from localStorage.", error);
-  }
-}
-
 function loadRowNumberVisibilityPreference() {
   try {
     const stored = localStorage.getItem(ROW_NUMBER_VISIBILITY_STORAGE_KEY);
@@ -3235,14 +3179,6 @@ function loadRowNumberVisibilityPreference() {
     }
   } catch (error) {
     console.warn("Line-number preference could not be read from localStorage.", error);
-  }
-}
-
-function persistThemePreference(theme) {
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
-  } catch (error) {
-    console.warn("Theme preference could not be saved to localStorage.", error);
   }
 }
 
@@ -4151,7 +4087,8 @@ function renderGroupByChips() {
     chip.className = "group-chip";
     chip.draggable = true;
     chip.dataset.groupIndex = String(index);
-    chip.title = "Drag to reorder grouped fields";
+    chip.dataset.tooltip = "Drag to reorder grouped fields";
+    chip.setAttribute("aria-label", `${header}. Drag to reorder grouped fields`);
     chip.textContent = header;
 
     chip.addEventListener("dragstart", onGroupChipDragStart);
@@ -4162,7 +4099,8 @@ function renderGroupByChips() {
     const removeBtn = document.createElement("span");
     removeBtn.className = "group-chip-remove";
     removeBtn.textContent = "\u00D7";
-    removeBtn.title = `Remove ${header} from grouping`;
+    removeBtn.dataset.tooltip = `Remove ${header} from grouping`;
+    removeBtn.setAttribute("aria-label", `Remove ${header} from grouping`);
     removeBtn.dataset.header = header;
     removeBtn.addEventListener("click", onRemoveGroupField);
     chip.appendChild(removeBtn);
@@ -5099,7 +5037,8 @@ function getRowColorStyleByValue(rawValue, column = state.rowColorByColumn) {
     state.theme === "material-dark" ||
     state.theme === "ios-dark" ||
     state.theme === "adx-dark" ||
-    state.theme === "neon-party";
+    state.theme === "neon-party" ||
+    state.theme === "cyberpunk";
 
   const isLightTheme =
     state.theme === "light" ||
