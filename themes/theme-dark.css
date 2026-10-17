@@ -10,6 +10,25 @@ body[data-theme="dark"] {
   --status-warn: #ff9a62;
   --help-header-bg: #222a37;
   --help-header-text: #e7edf6;
+  --theme-surface: var(--win-bg);
+  --theme-surface-alt: var(--win-panel);
+  --theme-surface-strong: #1f2632;
+  --theme-outline: var(--win-border);
+  --theme-outline-strong: var(--win-border-dark);
+  --theme-divider: #2f394a;
+  --theme-text: var(--win-text);
+  --theme-muted: var(--win-muted);
+  --theme-selection: var(--win-select);
+  --theme-primary: #6ea9ff;
+  --theme-primary-strong: #3b82f6;
+  --theme-on-primary: #0b1220;
+  --theme-overlay: rgba(8, 12, 19, 0.52);
+  --theme-elevation-1: 1px 1px 0 #2a3447 inset, 0 2px 8px rgba(0, 0, 0, 0.45);
+  --theme-elevation-2: 0 16px 42px rgba(0, 0, 0, 0.35);
+  --theme-status-ok: var(--status-ok);
+  --theme-status-warn: var(--status-warn);
+  --theme-help-header-bg: var(--help-header-bg);
+  --theme-help-header-text: var(--help-header-text);
 }
 
 body[data-theme="dark"] .menu-bar-wrap {

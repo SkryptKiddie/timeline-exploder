@@ -1,15 +1,34 @@
 :root {
-  --win-bg: #ece9d8;
-  --win-panel: #f6f4eb;
-  --win-border: #aca899;
-  --win-border-dark: #7e7a69;
-  --win-text: #1a1a1a;
-  --win-muted: #3f3f3f;
-  --win-select: #dbe8f8;
-  --status-ok: #1a6c32;
-  --status-warn: #8f3300;
-  --help-header-bg: linear-gradient(#faf9f2, #ebe7d9);
-  --help-header-text: #1a1a1a;
+  --theme-surface: #ece9d8;
+  --theme-surface-alt: #f6f4eb;
+  --theme-surface-strong: #ebe7d9;
+  --theme-outline: #aca899;
+  --theme-outline-strong: #7e7a69;
+  --theme-divider: #d0ccbd;
+  --theme-text: #1a1a1a;
+  --theme-muted: #3f3f3f;
+  --theme-selection: #dbe8f8;
+  --theme-primary: #2d6eb3;
+  --theme-primary-strong: #1c4f85;
+  --theme-on-primary: #ffffff;
+  --theme-overlay: rgba(18, 35, 58, 0.25);
+  --theme-elevation-1: 0 1px 0 rgba(255, 255, 255, 0.75), 0 2px 4px rgba(7, 19, 33, 0.1);
+  --theme-elevation-2: 0 16px 36px rgba(7, 19, 33, 0.22);
+  --theme-status-ok: #1a6c32;
+  --theme-status-warn: #8f3300;
+  --theme-help-header-bg: linear-gradient(#faf9f2, #ebe7d9);
+  --theme-help-header-text: #1a1a1a;
+  --win-bg: var(--theme-surface);
+  --win-panel: var(--theme-surface-alt);
+  --win-border: var(--theme-outline);
+  --win-border-dark: var(--theme-outline-strong);
+  --win-text: var(--theme-text);
+  --win-muted: var(--theme-muted);
+  --win-select: var(--theme-selection);
+  --status-ok: var(--theme-status-ok);
+  --status-warn: var(--theme-status-warn);
+  --help-header-bg: var(--theme-help-header-bg);
+  --help-header-text: var(--theme-help-header-text);
 }
 
 * {
@@ -18,8 +37,8 @@
 
 body {
   margin: 0;
-  background: var(--win-bg);
-  color: var(--win-text);
+  background: var(--theme-surface);
+  color: var(--theme-text);
   font-family: "Segoe UI", Tahoma, sans-serif;
   font-size: 13px;
 }
@@ -38,7 +57,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(18, 35, 58, 0.25);
+  background: var(--theme-overlay);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.16s ease;
@@ -47,10 +66,10 @@ body {
 .file-drop-panel {
   width: min(560px, 92vw);
   padding: 24px 28px;
-  border: 2px dashed #2d6eb3;
+  border: 2px dashed var(--theme-primary);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 16px 36px rgba(7, 19, 33, 0.22);
+  background: var(--theme-surface-alt);
+  box-shadow: var(--theme-elevation-2);
   text-align: center;
 }
 
@@ -58,13 +77,13 @@ body {
   margin: 0;
   font-size: clamp(20px, 2.8vw, 32px);
   font-weight: 700;
-  color: #1c4f85;
+  color: var(--theme-primary-strong);
 }
 
 .file-drop-subtitle {
   margin: 8px 0 0;
   font-size: 14px;
-  color: #355c84;
+  color: var(--theme-muted);
 }
 
 .top-chrome {
@@ -79,14 +98,14 @@ body {
 }
 
 .menu-bar-wrap {
-  border-bottom: 1px solid var(--win-border);
-  background: linear-gradient(#faf9f2, #ebe7d9);
+  border-bottom: 1px solid var(--theme-outline);
+  background: linear-gradient(var(--theme-surface-alt), var(--theme-surface-strong));
 }
 
 .title-strip {
   padding: 7px 10px;
   font-weight: 600;
-  border-bottom: 1px solid #d0ccbd;
+  border-bottom: 1px solid var(--theme-divider);
 }
 
 .menu-bar {
@@ -94,7 +113,7 @@ body {
   align-items: center;
   gap: 4px;
   padding: 2px 5px;
-  border-top: 1px solid #ffffff;
+  border-top: 1px solid color-mix(in srgb, var(--theme-surface-alt) 92%, white);
 }
 
 .menu-item {
@@ -107,7 +126,7 @@ body {
 
 .menu-button {
   font: inherit;
-  color: var(--win-text);
+  color: var(--theme-text);
   background: transparent;
   border: 1px solid transparent;
   padding: 3px 9px;
@@ -117,8 +136,8 @@ body {
 
 .menu-button:hover,
 .menu-button[aria-expanded="true"] {
-  border-color: var(--win-border);
-  background: #f8f7f0;
+  border-color: var(--theme-outline);
+  background: var(--theme-surface-alt);
 }
 
 .menu-dropdown {
@@ -126,10 +145,10 @@ body {
   top: calc(100% + 1px);
   left: 0;
   min-width: 220px;
-  background: #ffffff;
-  color: var(--win-text);
-  border: 1px solid var(--win-border-dark);
-  box-shadow: 1px 1px 0 #ffffff inset;
+  background: var(--theme-surface-alt);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-outline-strong);
+  box-shadow: var(--theme-elevation-1);
   z-index: 10;
   padding: 4px;
 }
@@ -153,8 +172,8 @@ body {
 }
 
 .menu-action:hover {
-  border-color: #88a4c5;
-  background: var(--win-select);
+  border-color: var(--theme-outline-strong);
+  background: var(--theme-selection);
 }
 
 .menu-submenu-item {
@@ -177,10 +196,10 @@ body {
   top: -4px;
   left: calc(100% - 1px);
   min-width: 170px;
-  background: #ffffff;
-  color: var(--win-text);
-  border: 1px solid var(--win-border-dark);
-  box-shadow: 1px 1px 0 #ffffff inset;
+  background: var(--theme-surface-alt);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-outline-strong);
+  box-shadow: var(--theme-elevation-1);
   z-index: 11;
   padding: 4px;
   display: none;
@@ -195,9 +214,9 @@ body {
   position: fixed;
   width: 220px;
   max-width: calc(100vw - 16px);
-  background: #ffffff;
-  border: 1px solid var(--win-border-dark);
-  box-shadow: 1px 1px 0 #ffffff inset, 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--theme-surface-alt);
+  border: 1px solid var(--theme-outline-strong);
+  box-shadow: var(--theme-elevation-1);
   z-index: 1000;
   padding: 4px;
 }
@@ -210,9 +229,9 @@ body {
   position: fixed;
   width: 280px;
   max-width: calc(100vw - 16px);
-  background: #ffffff;
-  border: 1px solid var(--win-border-dark);
-  box-shadow: 1px 1px 0 #ffffff inset, 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--theme-surface-alt);
+  border: 1px solid var(--theme-outline-strong);
+  box-shadow: var(--theme-elevation-1);
   z-index: 1001;
   padding: 4px;
 }
@@ -317,21 +336,21 @@ body {
 
 .tool-btn {
   font: inherit;
-  background: #f1efe4;
-  color: var(--win-text);
-  border: 1px solid var(--win-border);
-  border-top-color: #ffffff;
-  border-left-color: #ffffff;
+  background: var(--theme-surface-alt);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-outline);
+  border-top-color: color-mix(in srgb, var(--theme-surface-alt) 94%, white);
+  border-left-color: color-mix(in srgb, var(--theme-surface-alt) 94%, white);
   padding: 4px 9px;
   min-height: 26px;
 }
 
 .tool-btn:active {
-  border-top-color: var(--win-border-dark);
-  border-left-color: var(--win-border-dark);
-  border-bottom-color: #ffffff;
-  border-right-color: #ffffff;
-  background: #e2decd;
+  border-top-color: var(--theme-outline-strong);
+  border-left-color: var(--theme-outline-strong);
+  border-bottom-color: color-mix(in srgb, var(--theme-surface-alt) 94%, white);
+  border-right-color: color-mix(in srgb, var(--theme-surface-alt) 94%, white);
+  background: color-mix(in srgb, var(--theme-surface-alt) 88%, var(--theme-outline));
 }
 
 .status {
@@ -357,7 +376,7 @@ body {
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
-  color: #2d6eb3;
+  color: var(--theme-primary);
   animation: loading-spin 0.75s linear infinite;
 }
 
@@ -423,7 +442,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 1400;
-  background: rgba(11, 16, 28, 0.52);
+  background: var(--theme-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -436,10 +455,10 @@ body {
 
 .help-panel {
   width: min(620px, 96vw);
-  border: 1px solid var(--win-border-dark);
-  background: var(--win-panel);
-  color: var(--win-text);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--theme-outline-strong);
+  background: var(--theme-surface-alt);
+  color: var(--theme-text);
+  box-shadow: var(--theme-elevation-2);
 }
 
 .help-panel-header {
@@ -448,7 +467,7 @@ body {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--win-border);
+  border-bottom: 1px solid var(--theme-outline);
   background: var(--help-header-bg);
 }
 
@@ -547,9 +566,9 @@ body {
   min-height: 0;
   max-height: none;
   overflow: auto;
-  border: 1px solid var(--win-border);
-  background: #f8fbff;
-  color: var(--win-text);
+  border: 1px solid var(--theme-outline);
+  background: var(--theme-surface-alt);
+  color: var(--theme-text);
   padding: 10px;
   white-space: pre-wrap;
   word-break: break-word;

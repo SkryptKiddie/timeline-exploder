@@ -23,6 +23,25 @@ body[data-theme="material-light"] {
   --material-shadow-1: 0 1px 3px rgba(16, 24, 40, 0.12), 0 1px 2px rgba(16, 24, 40, 0.08);
   --material-shadow-2: 0 8px 24px rgba(16, 24, 40, 0.14), 0 2px 6px rgba(16, 24, 40, 0.08);
   --material-overlay: rgba(16, 24, 40, 0.18);
+  --theme-surface: var(--material-surface);
+  --theme-surface-alt: var(--material-surface-alt);
+  --theme-surface-strong: var(--material-surface-strong);
+  --theme-outline: var(--material-outline);
+  --theme-outline-strong: var(--material-outline-strong);
+  --theme-divider: var(--material-divider);
+  --theme-text: var(--win-text);
+  --theme-muted: var(--win-muted);
+  --theme-selection: var(--win-select);
+  --theme-primary: var(--material-primary);
+  --theme-primary-strong: var(--material-primary-strong);
+  --theme-on-primary: #ffffff;
+  --theme-overlay: var(--material-overlay);
+  --theme-elevation-1: var(--material-shadow-1);
+  --theme-elevation-2: var(--material-shadow-2);
+  --theme-status-ok: var(--status-ok);
+  --theme-status-warn: var(--status-warn);
+  --theme-help-header-bg: var(--help-header-bg);
+  --theme-help-header-text: var(--help-header-text);
   color-scheme: light;
 }
 
@@ -51,6 +70,25 @@ body[data-theme="material-dark"] {
   --material-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.44);
   --material-shadow-2: 0 14px 30px rgba(0, 0, 0, 0.5);
   --material-overlay: rgba(7, 10, 14, 0.58);
+  --theme-surface: var(--material-surface);
+  --theme-surface-alt: var(--material-surface-alt);
+  --theme-surface-strong: var(--material-surface-strong);
+  --theme-outline: var(--material-outline);
+  --theme-outline-strong: var(--material-outline-strong);
+  --theme-divider: var(--material-divider);
+  --theme-text: var(--win-text);
+  --theme-muted: var(--win-muted);
+  --theme-selection: var(--win-select);
+  --theme-primary: var(--material-primary);
+  --theme-primary-strong: var(--material-primary-strong);
+  --theme-on-primary: #0f172a;
+  --theme-overlay: var(--material-overlay);
+  --theme-elevation-1: var(--material-shadow-1);
+  --theme-elevation-2: var(--material-shadow-2);
+  --theme-status-ok: var(--status-ok);
+  --theme-status-warn: var(--status-warn);
+  --theme-help-header-bg: var(--help-header-bg);
+  --theme-help-header-text: var(--help-header-text);
   color-scheme: dark;
 }
 

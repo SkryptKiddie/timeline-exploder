@@ -10,6 +10,25 @@ body[data-theme="ios-light"] {
   --status-warn: #b15f00;
   --help-header-bg: linear-gradient(180deg, #f7f7f9 0%, #ececf1 100%);
   --help-header-text: #1c1c1e;
+  --theme-surface: var(--win-bg);
+  --theme-surface-alt: var(--win-panel);
+  --theme-surface-strong: #ececf1;
+  --theme-outline: var(--win-border);
+  --theme-outline-strong: var(--win-border-dark);
+  --theme-divider: #d8d8de;
+  --theme-text: var(--win-text);
+  --theme-muted: var(--win-muted);
+  --theme-selection: var(--win-select);
+  --theme-primary: #2d6eb3;
+  --theme-primary-strong: #1c4f85;
+  --theme-on-primary: #ffffff;
+  --theme-overlay: rgba(28, 28, 30, 0.16);
+  --theme-elevation-1: 0 1px 0 rgba(255, 255, 255, 0.7), 0 2px 8px rgba(28, 28, 30, 0.1);
+  --theme-elevation-2: 0 12px 30px rgba(28, 28, 30, 0.16);
+  --theme-status-ok: var(--status-ok);
+  --theme-status-warn: var(--status-warn);
+  --theme-help-header-bg: var(--help-header-bg);
+  --theme-help-header-text: var(--help-header-text);
 }
 
 body[data-theme="ios-light"] {
@@ -116,6 +135,25 @@ body[data-theme="ios-dark"] {
   --status-warn: #ff9f0a;
   --help-header-bg: linear-gradient(180deg, #2a2d38 0%, #1f2230 100%);
   --help-header-text: #f2f2f7;
+  --theme-surface: var(--win-bg);
+  --theme-surface-alt: var(--win-panel);
+  --theme-surface-strong: #232631;
+  --theme-outline: var(--win-border);
+  --theme-outline-strong: var(--win-border-dark);
+  --theme-divider: #3b3f4c;
+  --theme-text: var(--win-text);
+  --theme-muted: var(--win-muted);
+  --theme-selection: var(--win-select);
+  --theme-primary: #6ea9ff;
+  --theme-primary-strong: #3f82d6;
+  --theme-on-primary: #0f1015;
+  --theme-overlay: rgba(8, 10, 16, 0.52);
+  --theme-elevation-1: 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.45);
+  --theme-elevation-2: 0 16px 34px rgba(0, 0, 0, 0.52);
+  --theme-status-ok: var(--status-ok);
+  --theme-status-warn: var(--status-warn);
+  --theme-help-header-bg: var(--help-header-bg);
+  --theme-help-header-text: var(--help-header-text);
 }
 
 body[data-theme="ios-dark"] {

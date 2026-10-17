@@ -10,6 +10,25 @@ body[data-theme="windows-xp"] {
   --status-warn: #9b0000;
   --help-header-bg: linear-gradient(180deg, #0a246a 0%, #3a6ea5 100%);
   --help-header-text: #ffffff;
+  --theme-surface: var(--win-bg);
+  --theme-surface-alt: #ffffff;
+  --theme-surface-strong: #d6d2c4;
+  --theme-outline: var(--win-border);
+  --theme-outline-strong: var(--win-border-dark);
+  --theme-divider: #7f9db9;
+  --theme-text: var(--win-text);
+  --theme-muted: var(--win-muted);
+  --theme-selection: var(--win-select);
+  --theme-primary: #316ac5;
+  --theme-primary-strong: #0a246a;
+  --theme-on-primary: #ffffff;
+  --theme-overlay: rgba(58, 110, 165, 0.25);
+  --theme-elevation-1: inset 0 1px 0 #ffffff;
+  --theme-elevation-2: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  --theme-status-ok: var(--status-ok);
+  --theme-status-warn: var(--status-warn);
+  --theme-help-header-bg: var(--help-header-bg);
+  --theme-help-header-text: var(--help-header-text);
   background: #3a6ea5;
   font-family: Tahoma, "Segoe UI", sans-serif;
 }
