@@ -179,12 +179,14 @@
       </div>
 
       <div id="helpOverlay" class="help-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpOverlayTitle">
-        <div class="help-panel" role="document">
-          <div class="help-panel-header">
-            <h2 id="helpOverlayTitle" class="help-title">Help</h2>
-            <button id="helpCloseBtn" class="help-close-btn" type="button" aria-label="Close help">&times;</button>
+        <div class="help-panel window" role="document">
+          <div class="help-panel-header title-bar">
+            <div id="helpOverlayTitle" class="help-title title-bar-text">Help</div>
+            <div class="title-bar-controls">
+              <button id="helpCloseBtn" class="help-close-btn" type="button" aria-label="Close"></button>
+            </div>
           </div>
-          <div class="help-panel-body">
+          <div class="help-panel-body window-body">
             <p>Timeline Exploder is a simple, web-based utility for browsing CSV, JSON and SQLite files. It is heavily inspired from <a href="https://www.sans.org/tools/timeline-explorer" target="_blank">Eric Zimmerman's Timeline Explorer</a>.</p>
             <p>All processing is handled on the client-site, <strong>no data is sent to any server.</strong></p>
             <p><strong>Keyboard shortcuts:</strong><br />
@@ -203,12 +205,14 @@
       </div>
 
       <div id="cellOverlay" class="help-overlay cell-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="cellOverlayTitle">
-        <div class="help-panel cell-panel" role="document">
-          <div class="help-panel-header">
-            <h2 id="cellOverlayTitle" class="help-title">Cell Value</h2>
-            <button id="cellOverlayCloseBtn" class="help-close-btn" type="button" aria-label="Close cell value viewer">&times;</button>
+        <div class="help-panel cell-panel window" role="document">
+          <div class="help-panel-header title-bar">
+            <div id="cellOverlayTitle" class="help-title title-bar-text">Cell Value</div>
+            <div class="title-bar-controls">
+              <button id="cellOverlayCloseBtn" class="help-close-btn" type="button" aria-label="Close"></button>
+            </div>
           </div>
-          <div class="help-panel-body cell-panel-body">
+          <div class="help-panel-body cell-panel-body window-body">
             <p id="cellOverlayMeta" class="cell-overlay-meta"></p>
             <pre id="cellOverlayValue" class="cell-overlay-value"></pre>
             <div class="cell-overlay-controls" aria-label="Cell viewer display settings">
@@ -224,12 +228,14 @@
       </div>
 
       <div id="columnStatsOverlay" class="help-overlay column-stats-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="columnStatsTitle">
-        <div class="help-panel column-stats-panel" role="document">
-          <div class="help-panel-header">
-            <h2 id="columnStatsTitle" class="help-title">Column Stats</h2>
-            <button id="columnStatsCloseBtn" class="help-close-btn" type="button" aria-label="Close column stats">&times;</button>
+        <div class="help-panel column-stats-panel window" role="document">
+          <div class="help-panel-header title-bar">
+            <div id="columnStatsTitle" class="help-title title-bar-text">Column Stats</div>
+            <div class="title-bar-controls">
+              <button id="columnStatsCloseBtn" class="help-close-btn" type="button" aria-label="Close"></button>
+            </div>
           </div>
-          <div class="help-panel-body column-stats-body">
+          <div class="help-panel-body column-stats-body window-body">
             <p id="columnStatsMeta" class="column-stats-meta"></p>
             <div class="column-stats-grid">
               <p class="column-stats-item"><span>Total rows</span><strong id="columnStatsTotalRows">0</strong></p>
@@ -291,13 +297,15 @@
             <table id="dataTable" class="data-table"></table>
           </div>
           <div id="rowDetailsOverlay" class="row-details-overlay hidden" role="dialog" aria-labelledby="rowDetailsTitle">
-            <div class="help-panel row-details-panel" role="document">
+            <div class="help-panel row-details-panel window" role="document">
               <div id="rowDetailsResizeHandle" class="row-details-resize-handle" aria-hidden="true"></div>
-              <div class="help-panel-header">
-                <h2 id="rowDetailsTitle" class="help-title">Row Details</h2>
-                <button id="rowDetailsCloseBtn" class="help-close-btn" type="button" aria-label="Close row details">&times;</button>
+              <div class="help-panel-header title-bar">
+                <div id="rowDetailsTitle" class="help-title title-bar-text">Row Details</div>
+                <div class="title-bar-controls">
+                  <button id="rowDetailsCloseBtn" class="help-close-btn" type="button" aria-label="Close"></button>
+                </div>
               </div>
-              <div class="help-panel-body row-details-body">
+              <div class="help-panel-body row-details-body window-body">
                 <p id="rowDetailsMeta" class="row-details-meta"></p>
                 <pre id="rowDetailsLog" class="row-details-log"></pre>
                 <div class="cell-overlay-controls" aria-label="Row viewer display settings">

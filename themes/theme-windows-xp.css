@@ -29,22 +29,26 @@ body[data-theme="windows-xp"] {
   --theme-status-warn: var(--status-warn);
   --theme-help-header-bg: var(--help-header-bg);
   --theme-help-header-text: var(--help-header-text);
-  background: #3a6ea5;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.22) 0 10%, transparent 11%),
+    radial-gradient(circle at 78% 8%, rgba(255, 255, 255, 0.16) 0 8%, transparent 9%),
+    linear-gradient(180deg, #7db0e3 0%, #5a8fcd 18%, #3f78b8 42%, #37689e 68%, #315d8c 100%);
   font-family: Tahoma, "Segoe UI", sans-serif;
 }
 
 body[data-theme="windows-xp"] .title-strip {
-  background: linear-gradient(180deg, #3f8cf0 0%, #1f66cc 55%, #124ca2 100%);
+  background: linear-gradient(180deg, #7db0e3 0%, #4d88d1 18%, #2b67c7 52%, #1e4fbe 100%);
   color: #ffffff;
-  border-bottom-color: #0a3f8b;
-  text-shadow: 0 1px 0 rgba(8, 36, 84, 0.55);
+  border-bottom-color: #153f8e;
+  text-shadow: 0 1px 0 rgba(8, 36, 84, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62), inset 0 -1px 0 rgba(11, 47, 107, 0.72);
 }
 
 body[data-theme="windows-xp"] .menu-bar-wrap,
 body[data-theme="windows-xp"] .controls {
-  background: linear-gradient(180deg, #ffffff 0%, #d6d2c4 52%, #c3bfb2 100%);
+  background: linear-gradient(180deg, #fdfdfb 0%, #ece9d8 54%, #dad5c3 100%);
   border-color: #7f9db9;
-  box-shadow: inset 0 1px 0 #ffffff;
+  box-shadow: inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(122, 132, 149, 0.22);
 }
 
 body[data-theme="windows-xp"] .menu-bar {
@@ -57,8 +61,19 @@ body[data-theme="windows-xp"] .tool-btn {
   border-radius: 2px;
 }
 
+body[data-theme="windows-xp"] .menu-button {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0));
+  border-color: transparent;
+}
+
 body[data-theme="windows-xp"] .menu-button:hover,
-body[data-theme="windows-xp"] .menu-button[aria-expanded="true"],
+body[data-theme="windows-xp"] .menu-button[aria-expanded="true"] {
+  background: linear-gradient(180deg, #ffffff 0%, #edf5ff 52%, #d4e4f7 100%);
+  border-color: #0a246a;
+  color: #0a246a;
+  box-shadow: inset 0 1px 0 #ffffff;
+}
+
 body[data-theme="windows-xp"] .menu-action:hover,
 body[data-theme="windows-xp"] .context-menu-item:hover {
   background: #316ac5;
@@ -70,30 +85,62 @@ body[data-theme="windows-xp"] .menu-dropdown,
 body[data-theme="windows-xp"] .menu-submenu,
 body[data-theme="windows-xp"] .column-context-menu,
 body[data-theme="windows-xp"] .field-context-menu {
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f8f4 100%);
   border-color: #0a246a;
   border-radius: 0;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  box-shadow: inset 1px 1px 0 #ffffff, 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+body[data-theme="windows-xp"] .menu-action,
+body[data-theme="windows-xp"] .context-menu-item {
+  border-radius: 1px;
 }
 
 body[data-theme="windows-xp"] .tool-btn {
-  background: linear-gradient(180deg, #ffffff 0%, #ece9d8 45%, #d6d2c4 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f4f1e7 42%, #ddd8c6 100%);
   border: 1px solid #003c7a;
-  box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #7f7f7f;
+  box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #7f7f7f, 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 body[data-theme="windows-xp"] .tool-btn:hover {
-  background: linear-gradient(180deg, #9de073 0%, #6bc14a 55%, #4b9d33 100%);
-  border-color: #2f7e21;
-  color: #ffffff;
-  text-shadow: 0 1px 0 rgba(29, 83, 22, 0.6);
+  background: linear-gradient(180deg, #ffffff 0%, #dfeeff 50%, #b9d7fa 100%);
+  border-color: #3f79bd;
+  color: #0a246a;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 body[data-theme="windows-xp"] .tool-btn:active {
-  background: #4b9d33;
-  border-color: #2f7e21;
-  color: #ffffff;
-  box-shadow: inset 1px 1px 0 #2d6f1f;
+  background: linear-gradient(180deg, #d6e8fa 0%, #9fc0e5 100%);
+  border-color: #3f79bd;
+  color: #0a246a;
+  box-shadow: inset 1px 1px 0 #7fb0e0;
+}
+
+body[data-theme="windows-xp"] .cell-overlay-controls {
+  flex-wrap: nowrap;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+body[data-theme="windows-xp"] .cell-font-slider {
+  width: min(420px, 46vw);
+  min-width: 120px;
+  flex: 1 1 auto;
+  margin: 0 4px;
+  vertical-align: middle;
+}
+
+body[data-theme="windows-xp"] .cell-font-slider:focus {
+  outline: none;
+}
+
+body[data-theme="windows-xp"] .cell-font-size-value {
+  min-width: 46px;
+  text-align: right;
+}
+
+body[data-theme="windows-xp"] .cell-overlay-syntax {
+  margin-left: 4px;
 }
 
 body[data-theme="windows-xp"] .advanced-search-input,
@@ -104,46 +151,113 @@ body[data-theme="windows-xp"] .time-window-input,
 body[data-theme="windows-xp"] .sqlite-table-select,
 body[data-theme="windows-xp"] .filter-input,
 body[data-theme="windows-xp"] .filter-operator {
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   border-color: #7f9db9;
   border-radius: 0;
   color: #000000;
+  box-shadow: inset 0 1px 2px rgba(85, 108, 138, 0.12);
+}
+
+body[data-theme="windows-xp"] .advanced-search-input:focus,
+body[data-theme="windows-xp"] .global-search-input:focus,
+body[data-theme="windows-xp"] .find-input:focus,
+body[data-theme="windows-xp"] .time-window-select:focus,
+body[data-theme="windows-xp"] .time-window-input:focus,
+body[data-theme="windows-xp"] .sqlite-table-select:focus,
+body[data-theme="windows-xp"] .filter-input:focus,
+body[data-theme="windows-xp"] .filter-operator:focus {
+  border-color: #3f8cf0;
+  box-shadow: 0 0 0 1px rgba(63, 140, 240, 0.22), inset 0 1px 2px rgba(85, 108, 138, 0.12);
 }
 
 body[data-theme="windows-xp"] .file-drop-panel {
   border-color: #316ac5;
   border-radius: 4px;
-  background: #ece9d8;
+  background: linear-gradient(180deg, #fbfaf3 0%, #ece9d8 100%);
+  box-shadow: inset 1px 1px 0 #ffffff, 0 16px 36px rgba(17, 35, 62, 0.22);
 }
 
 body[data-theme="windows-xp"] .file-tabs,
 body[data-theme="windows-xp"] .meta-row {
-  background: linear-gradient(180deg, #d6e8fa 0%, #b8d4ef 100%);
+  background: linear-gradient(180deg, #f8fbff 0%, #d7e6f4 100%);
   border-color: #7f9db9;
+}
+
+body[data-theme="windows-xp"] .meta-row {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+body[data-theme="windows-xp"] .meta-row p,
+body[data-theme="windows-xp"] .global-search-wrap,
+body[data-theme="windows-xp"] .find-wrap,
+body[data-theme="windows-xp"] .time-window-wrap,
+body[data-theme="windows-xp"] .sqlite-table-wrap {
+  color: #1a2e4d;
+}
+
+body[data-theme="windows-xp"] .meta-row strong {
+  color: #0a246a;
 }
 
 body[data-theme="windows-xp"] .file-tab {
-  background: #d6d2c4;
+  min-width: 96px;
+  max-width: 240px;
+  background: linear-gradient(180deg, #fefefe 0%, #ece9d8 100%);
   border-color: #7f9db9;
-  border-radius: 2px 2px 0 0;
+  border-bottom-color: #7f9db9;
+  border-radius: 4px 4px 0 0;
+  box-shadow: inset 0 1px 0 #ffffff;
 }
 
 body[data-theme="windows-xp"] .file-tab.is-active {
-  background: #ffffff;
-  border-top-color: #5fb94a;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border-color: #7f9db9;
+  border-bottom-color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    0 -1px 0 #ffffff,
+    0 1px 0 #ffffff;
+  position: relative;
+  top: 1px;
+  z-index: 2;
+}
+
+body[data-theme="windows-xp"] .file-tab-select {
+  padding: 4px 6px 4px 9px;
+}
+
+body[data-theme="windows-xp"] .file-tab-label {
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+body[data-theme="windows-xp"] .file-tab-close {
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  border-radius: 2px;
+}
+
+body[data-theme="windows-xp"] .file-tab-close:hover {
+  background: rgba(49, 106, 197, 0.12);
 }
 
 body[data-theme="windows-xp"] .table-zone,
 body[data-theme="windows-xp"] .data-table {
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   border-color: #7f9db9;
+}
+
+body[data-theme="windows-xp"] .table-zone {
+  box-shadow: inset 0 1px 0 #ffffff;
 }
 
 body[data-theme="windows-xp"] .data-table th,
 body[data-theme="windows-xp"] .data-table th.selection-col {
-  background: linear-gradient(180deg, #f7fbff 0%, #c9dff4 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #dfeeff 50%, #bfd7ef 100%);
   border-color: #7f9db9;
   color: #000000;
+  box-shadow: inset 0 1px 0 #ffffff;
 }
 
 body[data-theme="windows-xp"] .data-table td {
@@ -153,36 +267,43 @@ body[data-theme="windows-xp"] .data-table td {
 }
 
 body[data-theme="windows-xp"] .data-table td.row-number-cell {
-  background: #ece9d8;
-  color: #3f3f3f;
+  background: linear-gradient(180deg, #f7f2e6 0%, #ece9d8 100%);
+  color: #2b4a73;
 }
 
 body[data-theme="windows-xp"] .data-table th.pinned-col,
 body[data-theme="windows-xp"] .data-table td.pinned-cell {
-  background: #dbe8f8;
+  background: linear-gradient(180deg, #edf5ff 0%, #dbe8f8 100%);
 }
 
 body[data-theme="windows-xp"] .data-table tr:hover td,
 body[data-theme="windows-xp"] .data-table tr:hover td.selection-cell {
-  background: #e5f1ff;
+  background: #e8f2fd;
+}
+
+body[data-theme="windows-xp"] .data-table tr:hover td.row-number-cell,
+body[data-theme="windows-xp"] .data-table tr:hover td.pinned-cell {
+  background: #dceafb;
 }
 
 body[data-theme="windows-xp"] .group-by-zone {
   border-color: #7f9db9;
   border-radius: 2px;
-  background: #d6e8fa;
+  background: linear-gradient(180deg, #f0f7ff 0%, #dceafb 100%);
+  box-shadow: inset 0 1px 0 #ffffff;
 }
 
 body[data-theme="windows-xp"] .group-by-zone[data-drop-active="true"] {
   border-color: #3f9a2d;
-  background: #e4f6db;
+  background: linear-gradient(180deg, #f4faec 0%, #e4f6db 100%);
 }
 
 body[data-theme="windows-xp"] .group-chip {
   border-color: #316ac5;
   border-radius: 2px;
-  background: #dbe8f8;
+  background: linear-gradient(180deg, #ffffff 0%, #dfeeff 100%);
   color: #000000;
+  box-shadow: inset 0 1px 0 #ffffff;
 }
 
 body[data-theme="windows-xp"] .loading-progress-bar {
@@ -195,27 +316,34 @@ body[data-theme="windows-xp"] .advanced-search-wrap.drag-over .advanced-search-i
 }
 
 body[data-theme="windows-xp"] .row-menu-trigger {
-  color: #2f7e21;
+  color: #316ac5;
 }
 
 body[data-theme="windows-xp"] .row-menu-trigger:hover {
-  color: #1f5f15;
+  color: #0a246a;
 }
 
-body[data-theme="windows-xp"] .cell-overlay-value,
-body[data-theme="windows-xp"] .row-details-log,
-body[data-theme="windows-xp"] .row-details-list,
-body[data-theme="windows-xp"] .row-details-value,
-body[data-theme="windows-xp"] .column-stats-item,
-body[data-theme="windows-xp"] .column-stats-top-values {
-  background: #ffffff;
-  border-color: #7f9db9;
-  color: #000000;
+body[data-theme="windows-xp"] .row-menu-trigger:focus-visible {
+  outline-color: #3f8cf0;
 }
 
-body[data-theme="windows-xp"] .row-details-key {
-  background: #d6e8fa;
-  border-color: #7f9db9;
-  color: #000000;
+body[data-theme="windows-xp"] .help-panel,
+body[data-theme="windows-xp"] .cell-panel,
+body[data-theme="windows-xp"] .column-stats-panel,
+body[data-theme="windows-xp"] .row-details-panel {
+  max-width: min(96vw, 1120px);
+}
+
+body[data-theme="windows-xp"] .help-panel-body.window-body,
+body[data-theme="windows-xp"] .cell-panel-body.window-body,
+body[data-theme="windows-xp"] .column-stats-body.window-body,
+body[data-theme="windows-xp"] .row-details-body.window-body {
+  padding: 12px;
+}
+
+body[data-theme="windows-xp"] .help-close-btn {
+  width: 18px;
+  height: 18px;
+  padding: 0;
 }
 

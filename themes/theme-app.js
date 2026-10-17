@@ -27,6 +27,9 @@ const THEME_MENU_ITEMS = {
   "windows-xp": document.getElementById("themeWindowsXpMenuItem")
 };
 
+const XP_CSS_ID = "timeline-exploder-xp-css";
+const XP_CSS_HREF = "https://unpkg.com/xp.css";
+
 function setTheme(theme) {
   if (!SUPPORTED_THEMES.has(theme) || state.theme === theme) {
     syncMenuCheckboxStates();
@@ -61,6 +64,29 @@ function applyTheme() {
   } else {
     document.body.setAttribute("data-theme", state.theme);
   }
+
+  setXpCssEnabled(state.theme === "windows-xp");
+}
+
+function setXpCssEnabled(enabled) {
+  const existingStylesheet = document.getElementById(XP_CSS_ID);
+
+  if (!enabled) {
+    if (existingStylesheet) {
+      existingStylesheet.remove();
+    }
+    return;
+  }
+
+  if (existingStylesheet) {
+    return;
+  }
+
+  const stylesheet = document.createElement("link");
+  stylesheet.id = XP_CSS_ID;
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = XP_CSS_HREF;
+  document.head.appendChild(stylesheet);
 }
 
 function loadThemePreference() {

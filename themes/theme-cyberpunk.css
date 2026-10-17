@@ -206,8 +206,25 @@ body[data-theme="cyberpunk"] .table-zone {
 }
 
 body[data-theme="cyberpunk"] .meta-row {
-  background: linear-gradient(180deg, rgba(22, 10, 14, 0.96), rgba(14, 6, 9, 0.96));
-  border-bottom-color: rgba(255, 43, 91, 0.2);
+  background: linear-gradient(180deg, rgba(28, 12, 18, 0.98), rgba(16, 7, 11, 0.98));
+  border-bottom-color: rgba(255, 43, 91, 0.32);
+}
+
+body[data-theme="cyberpunk"] .meta-row p,
+body[data-theme="cyberpunk"] .global-search-wrap,
+body[data-theme="cyberpunk"] .find-wrap,
+body[data-theme="cyberpunk"] .time-window-wrap,
+body[data-theme="cyberpunk"] .sqlite-table-wrap,
+body[data-theme="cyberpunk"] .group-by-prefix,
+body[data-theme="cyberpunk"] .group-by-label,
+body[data-theme="cyberpunk"] .group-by-hint,
+body[data-theme="cyberpunk"] .time-window-sep {
+  color: #f6e9ee;
+}
+
+body[data-theme="cyberpunk"] .meta-row strong {
+  color: #f6d54f;
+  text-shadow: 0 0 10px rgba(246, 213, 79, 0.18);
 }
 
 body[data-theme="cyberpunk"] .file-tabs {
