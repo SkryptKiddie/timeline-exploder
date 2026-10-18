@@ -1663,7 +1663,8 @@ async function loadFile(file) {
       showProgress: true,
       progressBase: 72,
       progressSpan: 26,
-      progressLabel: "Rendering rows"
+      progressLabel: "Rendering rows",
+      keepProgressVisible: true
     });
     showLoadingProgress(100, "Done");
 
@@ -2001,7 +2002,7 @@ async function onSqliteTableChange(event) {
     await yieldToBrowser();
     await parseCurrentFile();
     applyFilters();
-    await renderTable();
+    await renderTable({ keepProgressVisible: true });
     hideLoadingProgress();
     setStatus(hasSqliteTables ? `Showing SQLite table ${nextTable}.` : `Showing sheet ${nextTable}.`, "ok");
   } catch (error) {
@@ -4595,6 +4596,7 @@ async function appendItemsInBatches(tbody, items, appendItem, options = {}) {
 }
 
 async function renderGroupedView(options = {}, renderPassId = renderState.renderPassId) {
+  const keepProgressVisible = Boolean(options.keepProgressVisible);
   dataTable.innerHTML = "";
 
   if (!state.headers.length || !state.groupByColumns.length) {
@@ -4650,10 +4652,20 @@ async function renderGroupedView(options = {}, renderPassId = renderState.render
 
   dataTable.appendChild(tbody);
   updateMeta();
+
+  if (shouldShowProgress && !keepProgressVisible) {
+    hideLoadingProgress();
+  }
 }
 
 async function renderTable(options = {}) {
+  const keepProgressVisible = Boolean(options.keepProgressVisible);
   const renderPassId = cancelPendingRender();
+
+  if (!keepProgressVisible) {
+    hideLoadingProgress();
+  }
+
   dataTable.innerHTML = "";
   virtualState.lastRangeKey = "";
   applyWordWrapClass();
@@ -4741,6 +4753,10 @@ async function renderTable(options = {}) {
   dataTable.appendChild(tbody);
   updateMeta();
   focusActiveFindMatch();
+
+  if (shouldShowProgress && !keepProgressVisible) {
+    hideLoadingProgress();
+  }
 }
 
 function renderVirtualizedRows() {
