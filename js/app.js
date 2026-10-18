@@ -63,6 +63,7 @@ const copyVisibleMenuItem = document.getElementById("copyVisibleMenuItem");
 const copyVisibleHtmlMenuItem = document.getElementById("copyVisibleHtmlMenuItem");
 const hideEmptyColsMenuItem = document.getElementById("hideEmptyColsMenuItem");
 const virtualizedRenderMenuItem = document.getElementById("virtualizedRenderMenuItem");
+const shannonEntropyMenuItem = document.getElementById("shannonEntropyMenuItem");
 const findWrap = document.getElementById("findWrap");
 const findInput = document.getElementById("findInput");
 const findPrevBtn = document.getElementById("findPrevBtn");
@@ -114,6 +115,13 @@ const columnStatsAvgLength = document.getElementById("columnStatsAvgLength");
 const columnStatsMinLength = document.getElementById("columnStatsMinLength");
 const columnStatsMaxLength = document.getElementById("columnStatsMaxLength");
 const columnStatsTopValues = document.getElementById("columnStatsTopValues");
+const entropyOverlay = document.getElementById("entropyOverlay");
+const entropyCloseBtn = document.getElementById("entropyCloseBtn");
+const entropyAnalyzeBtn = document.getElementById("entropyAnalyzeBtn");
+const entropyBlockSizeSelect = document.getElementById("entropyBlockSizeSelect");
+const entropySummary = document.getElementById("entropySummary");
+const entropyHeatmap = document.getElementById("entropyHeatmap");
+const entropyDetail = document.getElementById("entropyDetail");
 
 const state = {
   headers: [],
@@ -261,6 +269,28 @@ const BLOCKED_UPLOAD_MIME_TYPES = new Set(["application/pdf", "application/zip",
 let sqlJsInitPromise = null;
 let cellOverlayFontSize = 12;
 let rowDetailsFontSize = 12;
+
+const entropySupport = window.timelineExploderEntropy || null;
+const entropyController = entropySupport && typeof entropySupport.createEntropyController === "function"
+  ? entropySupport.createEntropyController({
+    state,
+    getVisibleHeaders,
+    setStatus,
+    closeAllMenus,
+    hideColumnContextMenu,
+    hideFieldContextMenu,
+    closeHelpOverlay,
+    closeCellOverlay,
+    closeColumnStatsOverlay,
+    overlay: entropyOverlay,
+    closeBtn: entropyCloseBtn,
+    analyzeBtn: entropyAnalyzeBtn,
+    blockSizeSelect: entropyBlockSizeSelect,
+    summaryNode: entropySummary,
+    heatmapNode: entropyHeatmap,
+    detailNode: entropyDetail
+  })
+  : null;
 
 const renderState = {
   renderPassId: 0,
@@ -1279,6 +1309,9 @@ cellOverlay.addEventListener("click", onCellOverlayClick);
 rowDetailsCloseBtn.addEventListener("click", closeRowDetailsOverlay);
 columnStatsCloseBtn.addEventListener("click", closeColumnStatsOverlay);
 columnStatsOverlay.addEventListener("click", onColumnStatsOverlayClick);
+if (entropyController) {
+  entropyController.bind();
+}
 dataTable.addEventListener("dblclick", onDataTableDoubleClick);
 dataTable.addEventListener("click", onDataTableClick);
 dataTable.addEventListener("mousedown", onDataTableCellMouseDown);
@@ -1404,6 +1437,16 @@ virtualizedRenderMenuItem.addEventListener("click", () => {
 clearFiltersMenuItem.addEventListener("click", () => {
   closeAllMenus();
   clearAllFilters();
+});
+
+shannonEntropyMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  if (!entropyController) {
+    setStatus("Entropy analyzer is unavailable right now.", "warn");
+    return;
+  }
+  entropyController.open();
+  entropyController.measure();
 });
 
 findInput.addEventListener("input", onFindInput);
@@ -2139,6 +2182,10 @@ function onDocumentKeyDown(event) {
 
   if (event.key === "Escape" && !helpOverlay.classList.contains("hidden")) {
     closeHelpOverlay();
+    return;
+  }
+
+  if (entropyController && entropyController.handleEscape(event)) {
     return;
   }
 

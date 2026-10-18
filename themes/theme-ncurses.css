@@ -276,7 +276,7 @@ body[data-theme^="ncurses-"] .file-tab-close:hover {
 body[data-theme^="ncurses-"] .title-bar,
 body[data-theme^="ncurses-"] .help-panel-header,
 body[data-theme^="ncurses-"] .row-details-header {
-  background: var(--nc-panel-alt);
+  background: var(--nc-bg);
   color: var(--nc-text);
 }
 
