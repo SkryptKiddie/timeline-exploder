@@ -5176,6 +5176,7 @@ function getRowColorStyleByValue(rawValue, column = state.rowColorByColumn) {
     state.theme === "material-dark" ||
     state.theme === "ios-dark" ||
     state.theme === "adx-dark" ||
+    state.theme === "ncurses-dark" ||
     state.theme === "neon-party" ||
     state.theme === "cyberpunk";
 
@@ -5183,7 +5184,8 @@ function getRowColorStyleByValue(rawValue, column = state.rowColorByColumn) {
     state.theme === "light" ||
     state.theme === "material-light" ||
     state.theme === "ios-light" ||
-    state.theme === "adx-light";
+    state.theme === "adx-light" ||
+    state.theme === "ncurses-light";
 
   if (isDarkTheme) {
     const { s, l } = ROW_COLOR_TIERS.dark[tier];

@@ -1,0 +1,409 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=Nunito:wght@400;600;700&display=swap');
+
+body[data-theme="strawberry-pink"] {
+  --win-bg: #fff4fb;
+  --win-panel: #fff9fc;
+  --win-border: #f0bfdc;
+  --win-border-dark: #e58ec0;
+  --win-text: #5f3558;
+  --win-muted: #8f5f86;
+  --win-select: rgba(255, 178, 216, 0.45);
+  --status-ok: #3c9f70;
+  --status-warn: #c75677;
+  --help-header-bg: linear-gradient(90deg, #ff9bcb 0%, #ffa8cf 42%, #ffd0e7 100%);
+  --help-header-text: #ffffff;
+  --theme-surface: #fff4fb;
+  --theme-surface-alt: #fff9fc;
+  --theme-surface-strong: #ffeaf5;
+  --theme-outline: #f2bfdc;
+  --theme-outline-strong: #e58ec0;
+  --theme-divider: #f4d2e7;
+  --theme-text: #5f3558;
+  --theme-muted: #8f5f86;
+  --theme-selection: rgba(255, 178, 216, 0.45);
+  --theme-primary: #ff6bae;
+  --theme-primary-strong: #f3479a;
+  --theme-on-primary: #ffffff;
+  --theme-overlay: rgba(94, 37, 87, 0.2);
+  --theme-elevation-1: 0 1px 0 rgba(255, 255, 255, 0.95), 0 5px 16px rgba(215, 107, 169, 0.18);
+  --theme-elevation-2: 0 20px 48px rgba(215, 107, 169, 0.24);
+  --theme-status-ok: #3c9f70;
+  --theme-status-warn: #c75677;
+  --theme-help-header-bg: var(--help-header-bg);
+  --theme-help-header-text: var(--help-header-text);
+}
+
+body[data-theme="strawberry-pink"],
+body[data-theme="strawberry-pink"] button,
+body[data-theme="strawberry-pink"] input,
+body[data-theme="strawberry-pink"] select,
+body[data-theme="strawberry-pink"] textarea {
+  font-family: "Nunito", "Segoe UI", sans-serif;
+}
+
+body[data-theme="strawberry-pink"] {
+  background:
+    radial-gradient(circle at 8% 14%, rgba(255, 214, 236, 0.84) 0 11%, transparent 12%),
+    radial-gradient(circle at 86% 18%, rgba(255, 207, 232, 0.72) 0 9%, transparent 10%),
+    radial-gradient(circle at 14% 84%, rgba(255, 225, 243, 0.62) 0 10%, transparent 11%),
+    linear-gradient(180deg, #ffe7f4 0%, #fff4fb 62%, #fffafc 100%);
+}
+
+body[data-theme="strawberry-pink"] .app-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.18)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 188, 224, 0.12) 0,
+      rgba(255, 188, 224, 0.12) 10px,
+      rgba(255, 255, 255, 0.08) 10px,
+      rgba(255, 255, 255, 0.08) 20px
+    );
+}
+
+body[data-theme="strawberry-pink"] .top-chrome,
+body[data-theme="strawberry-pink"] .menu-bar-wrap {
+  background: linear-gradient(180deg, #fff7fc 0%, #ffeef8 100%);
+}
+
+body[data-theme="strawberry-pink"] .menu-bar-wrap {
+  border-bottom-color: #f0bfdc;
+  box-shadow: 0 2px 0 rgba(255, 255, 255, 0.8), 0 8px 22px rgba(229, 142, 192, 0.18);
+}
+
+body[data-theme="strawberry-pink"] .menu-bar {
+  border-top-color: #ffffff;
+}
+
+body[data-theme="strawberry-pink"] .menu-button {
+  color: #7a4370;
+  border-radius: 999px;
+}
+
+body[data-theme="strawberry-pink"] .menu-button:hover,
+body[data-theme="strawberry-pink"] .menu-button[aria-expanded="true"] {
+  background: #ffd9ed;
+  border-color: #eaa5ca;
+}
+
+body[data-theme="strawberry-pink"] .menu-dropdown,
+body[data-theme="strawberry-pink"] .menu-submenu,
+body[data-theme="strawberry-pink"] .column-context-menu,
+body[data-theme="strawberry-pink"] .field-context-menu {
+  background: linear-gradient(180deg, #fff9fc 0%, #fff2f9 100%);
+  border-color: #eaa5ca;
+  border-radius: 14px;
+  box-shadow: 0 14px 30px rgba(218, 112, 170, 0.2);
+}
+
+body[data-theme="strawberry-pink"] .menu-action,
+body[data-theme="strawberry-pink"] .context-menu-item {
+  color: #6e3d65;
+  border-radius: 10px;
+}
+
+body[data-theme="strawberry-pink"] .menu-action:hover,
+body[data-theme="strawberry-pink"] .context-menu-item:hover {
+  border-color: #eaa5ca;
+  background: #ffd8ec;
+}
+
+body[data-theme="strawberry-pink"] .controls {
+  border-bottom-color: #f2c8e1;
+  background: linear-gradient(180deg, #fff9fc 0%, #fff2f9 100%);
+}
+
+body[data-theme="strawberry-pink"] .status {
+  color: #8f5f86;
+}
+
+body[data-theme="strawberry-pink"] .tool-btn {
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff8fc4 0%, #ff6bae 100%);
+  color: #ffffff;
+  font-family: "Baloo 2", "Nunito", "Segoe UI", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 6px 12px rgba(243, 71, 154, 0.24);
+  transition: transform 110ms ease, box-shadow 110ms ease, filter 110ms ease;
+}
+
+body[data-theme="strawberry-pink"] .tool-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(243, 71, 154, 0.3);
+  filter: brightness(1.02);
+}
+
+body[data-theme="strawberry-pink"] .tool-btn:active {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 4px 8px rgba(243, 71, 154, 0.22);
+}
+
+body[data-theme="strawberry-pink"] .toolbar #openFileBtn {
+  background: linear-gradient(180deg, #ff66ad 0%, #f84095 100%);
+}
+
+body[data-theme="strawberry-pink"] .toolbar #copySelectedBtn,
+body[data-theme="strawberry-pink"] .toolbar #advancedSearchToggleBtn {
+  background: linear-gradient(180deg, #ffd0e7 0%, #ffbfe0 100%);
+  color: #8c2a63;
+}
+
+body[data-theme="strawberry-pink"] .advanced-search-wrap {
+  background: rgba(255, 241, 249, 0.92);
+  border-top: 1px solid #f3cbe3;
+  border-radius: 14px;
+  padding: 10px;
+}
+
+body[data-theme="strawberry-pink"] .advanced-search-hint {
+  color: #8e6087;
+}
+
+body[data-theme="strawberry-pink"] .advanced-search-input,
+body[data-theme="strawberry-pink"] .global-search-input,
+body[data-theme="strawberry-pink"] .find-input,
+body[data-theme="strawberry-pink"] .time-window-select,
+body[data-theme="strawberry-pink"] .time-window-input,
+body[data-theme="strawberry-pink"] .sqlite-table-select,
+body[data-theme="strawberry-pink"] .filter-input,
+body[data-theme="strawberry-pink"] .filter-operator {
+  border: 1px solid #ebb4d3;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #6e3f65;
+}
+
+body[data-theme="strawberry-pink"] .advanced-search-input:focus,
+body[data-theme="strawberry-pink"] .global-search-input:focus,
+body[data-theme="strawberry-pink"] .find-input:focus,
+body[data-theme="strawberry-pink"] .time-window-select:focus,
+body[data-theme="strawberry-pink"] .time-window-input:focus,
+body[data-theme="strawberry-pink"] .sqlite-table-select:focus,
+body[data-theme="strawberry-pink"] .filter-input:focus,
+body[data-theme="strawberry-pink"] .filter-operator:focus {
+  border-color: #ff6bae;
+  box-shadow: 0 0 0 2px rgba(255, 107, 174, 0.22);
+  outline: none;
+}
+
+body[data-theme="strawberry-pink"] .loading-spinner {
+  color: #ff67ad;
+}
+
+body[data-theme="strawberry-pink"] .loading-progress-track {
+  background: #ffe9f5;
+  border-color: #ebaad0;
+}
+
+body[data-theme="strawberry-pink"] .loading-progress-bar {
+  background: linear-gradient(90deg, #ff6bae 0%, #ffa8cf 45%, #7fd5ff 100%);
+  box-shadow: 0 0 14px rgba(255, 107, 174, 0.28);
+}
+
+body[data-theme="strawberry-pink"] .loading-progress-text,
+body[data-theme="strawberry-pink"] .find-count,
+body[data-theme="strawberry-pink"] .global-search-wrap,
+body[data-theme="strawberry-pink"] .find-wrap,
+body[data-theme="strawberry-pink"] .time-window-wrap,
+body[data-theme="strawberry-pink"] .sqlite-table-wrap,
+body[data-theme="strawberry-pink"] .group-by-prefix,
+body[data-theme="strawberry-pink"] .group-by-label,
+body[data-theme="strawberry-pink"] .group-by-hint {
+  color: #8f5f86;
+}
+
+body[data-theme="strawberry-pink"] .file-tabs {
+  background: linear-gradient(180deg, #fff2f9 0%, #ffe5f2 100%);
+  border-bottom-color: #ebb4d3;
+}
+
+body[data-theme="strawberry-pink"] .file-tab {
+  background: linear-gradient(180deg, #fff6fb 0%, #ffe7f4 100%);
+  border-color: #ebb4d3;
+  color: #6e3f65;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+body[data-theme="strawberry-pink"] .file-tab.is-active {
+  background: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+body[data-theme="strawberry-pink"] .file-tab-close {
+  color: #bd3f7f;
+}
+
+body[data-theme="strawberry-pink"] .meta-row {
+  background: linear-gradient(180deg, #fff8fd 0%, #ffeff8 100%);
+  border-bottom-color: #f2c8e1;
+}
+
+body[data-theme="strawberry-pink"] .meta-row p,
+body[data-theme="strawberry-pink"] .global-search-wrap,
+body[data-theme="strawberry-pink"] .find-wrap,
+body[data-theme="strawberry-pink"] .time-window-wrap,
+body[data-theme="strawberry-pink"] .sqlite-table-wrap,
+body[data-theme="strawberry-pink"] .group-by-prefix,
+body[data-theme="strawberry-pink"] .group-by-label,
+body[data-theme="strawberry-pink"] .group-by-hint,
+body[data-theme="strawberry-pink"] .time-window-sep {
+  color: #7c4d74;
+}
+
+body[data-theme="strawberry-pink"] .meta-row strong {
+  color: #f3479a;
+}
+
+body[data-theme="strawberry-pink"] .table-zone {
+  background: linear-gradient(180deg, #fffdfd 0%, #fff9fc 100%);
+  border-top-color: #f8d9eb;
+}
+
+body[data-theme="strawberry-pink"] .data-table {
+  background: #fffafd;
+}
+
+body[data-theme="strawberry-pink"] .data-table th,
+body[data-theme="strawberry-pink"] .data-table th.selection-col {
+  background: linear-gradient(180deg, #fff4fb 0%, #ffe8f5 100%);
+  border-color: #f1c8e0;
+  color: #6a3f62;
+}
+
+body[data-theme="strawberry-pink"] .data-table td {
+  border-color: #f6dcea;
+  color: #5f3558;
+  background: #fffdfd;
+}
+
+body[data-theme="strawberry-pink"] .data-table td.row-number-cell,
+body[data-theme="strawberry-pink"] .data-table td.pinned-cell {
+  background: #fff4fb;
+}
+
+body[data-theme="strawberry-pink"] .data-table tr:hover td,
+body[data-theme="strawberry-pink"] .data-table tr:hover td.selection-cell {
+  background: #ffeef8;
+}
+
+body[data-theme="strawberry-pink"] .data-table td.find-match {
+  box-shadow: inset 0 0 0 999px rgba(255, 170, 217, 0.45);
+}
+
+body[data-theme="strawberry-pink"] .data-table td.find-active-match {
+  box-shadow: inset 0 0 0 999px rgba(127, 213, 255, 0.5);
+}
+
+body[data-theme="strawberry-pink"] .group-by-zone {
+  border-color: #ebb4d3;
+  background: #fff6fb;
+}
+
+body[data-theme="strawberry-pink"] .group-by-zone[data-drop-active="true"] {
+  background: #ffe7f4;
+  border-color: #ff8fc4;
+}
+
+body[data-theme="strawberry-pink"] .group-chip {
+  background: #ffd8ec;
+  border-color: #ebaad0;
+  color: #793f6d;
+}
+
+body[data-theme="strawberry-pink"] .group-header-row td {
+  background: linear-gradient(180deg, #fff1f8 0%, #ffe7f4 100%);
+  border-bottom-color: #f4cde3;
+}
+
+body[data-theme="strawberry-pink"] .group-header:hover,
+body[data-theme="strawberry-pink"] .group-content tr:hover td {
+  background: #ffeaf6;
+}
+
+body[data-theme="strawberry-pink"] .help-panel,
+body[data-theme="strawberry-pink"] .cell-panel,
+body[data-theme="strawberry-pink"] .row-details-panel,
+body[data-theme="strawberry-pink"] .column-stats-overlay > div {
+  border-radius: 18px;
+  overflow: hidden;
+  border-color: #e7a4ca;
+  box-shadow: 0 22px 48px rgba(205, 91, 155, 0.25);
+}
+
+body[data-theme="strawberry-pink"] .help-panel-header {
+  border-bottom-color: #e7a4ca;
+  background: var(--help-header-bg);
+}
+
+body[data-theme="strawberry-pink"] .help-title {
+  color: #ffffff;
+  font-family: "Baloo 2", "Nunito", "Segoe UI", sans-serif;
+  letter-spacing: 0.02em;
+}
+
+body[data-theme="strawberry-pink"] .help-close-btn,
+body[data-theme="strawberry-pink"] .cell-font-btn,
+body[data-theme="strawberry-pink"] .row-details-copy-btn {
+  border-color: #f29dca;
+  background: #ffd7eb;
+  color: #8e2f66;
+  border-radius: 10px;
+}
+
+body[data-theme="strawberry-pink"] .help-close-btn:hover,
+body[data-theme="strawberry-pink"] .cell-font-btn:hover,
+body[data-theme="strawberry-pink"] .row-details-copy-btn:hover {
+  background: #ffc5e2;
+}
+
+body[data-theme="strawberry-pink"] .help-close-btn::before {
+  content: "x";
+  font-size: 16px;
+  font-weight: 700;
+}
+
+body[data-theme="strawberry-pink"] .cell-overlay-value,
+body[data-theme="strawberry-pink"] .row-details-log,
+body[data-theme="strawberry-pink"] .column-stats-item,
+body[data-theme="strawberry-pink"] .column-stats-top-values {
+  border-color: #f1c8e0;
+  background: #fffdfd;
+}
+
+body[data-theme="strawberry-pink"] .cell-token-key {
+  color: #bf2f77;
+}
+
+body[data-theme="strawberry-pink"] .cell-token-string {
+  color: #2b7ea8;
+}
+
+body[data-theme="strawberry-pink"] .cell-token-number {
+  color: #8756b7;
+}
+
+body[data-theme="strawberry-pink"] .cell-token-boolean,
+body[data-theme="strawberry-pink"] .cell-token-null {
+  color: #2d9a68;
+}
+
+body[data-theme="strawberry-pink"] .cell-token-url,
+body[data-theme="strawberry-pink"] .cell-token-email,
+body[data-theme="strawberry-pink"] .cell-token-uuid,
+body[data-theme="strawberry-pink"] .cell-token-datetime {
+  color: #316ea6;
+}
+
+body[data-theme="strawberry-pink"] .status.ok {
+  color: #2f9869;
+}
+
+body[data-theme="strawberry-pink"] .status.warn {
+  color: #c75677;
+}
+
+
+

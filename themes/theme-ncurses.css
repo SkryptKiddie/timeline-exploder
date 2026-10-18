@@ -1,0 +1,307 @@
+body[data-theme^="ncurses-"] {
+  --theme-elevation-1: none;
+  --theme-elevation-2: 10px 10px 0 #000000;
+  --theme-overlay: rgba(0, 0, 0, 0.42);
+  --theme-primary: var(--nc-accent);
+  --theme-primary-strong: var(--nc-accent);
+  --theme-on-primary: var(--nc-text-inverse);
+  --theme-help-header-bg: var(--nc-panel);
+  --theme-help-header-text: var(--nc-text);
+  --win-bg: var(--nc-bg);
+  --win-panel: var(--nc-panel);
+  --win-border: var(--nc-border-dark);
+  --win-border-dark: var(--nc-border-black);
+  --win-text: var(--nc-text);
+  --win-muted: var(--nc-muted);
+  --win-select: var(--nc-select);
+  --status-ok: var(--nc-ok);
+  --status-warn: var(--nc-warn);
+  --theme-surface: var(--nc-bg);
+  --theme-surface-alt: var(--nc-panel);
+  --theme-surface-strong: var(--nc-panel-alt);
+  --theme-outline: var(--nc-border-dark);
+  --theme-outline-strong: var(--nc-border-black);
+  --theme-divider: var(--nc-border-black);
+  --theme-text: var(--nc-text);
+  --theme-muted: var(--nc-muted);
+  --theme-selection: var(--nc-select);
+  --theme-status-ok: var(--nc-ok);
+  --theme-status-warn: var(--nc-warn);
+  --theme-help-header-bg: var(--nc-panel);
+  --theme-help-header-text: var(--nc-text);
+  font-family: fixedsys, "Courier New", Consolas, monospace;
+  letter-spacing: 0.01em;
+}
+
+body[data-theme="ncurses-light"] {
+  --nc-bg: #0a2fc4;
+  --nc-panel: #d3d3d3;
+  --nc-panel-alt: #eeeeee;
+  --nc-text: #000000;
+  --nc-text-inverse: #ffffff;
+  --nc-muted: #4f4f4f;
+  --nc-accent: #54fefe;
+  --nc-select: rgba(84, 254, 254, 0.42);
+  --nc-row: #ffffff;
+  --nc-row-alt: rgba(0, 0, 0, 0.06);
+  --nc-header: #a9a9a9;
+  --nc-input: #ffffff;
+  --nc-ok: #006400;
+  --nc-warn: #aa0000;
+  --nc-border-light: #ffffff;
+  --nc-border-dark: #a9a9a9;
+  --nc-border-black: #000000;
+}
+
+body[data-theme="ncurses-dark"] {
+  --nc-bg: #000000;
+  --nc-panel: #303030;
+  --nc-panel-alt: #222222;
+  --nc-text: #ffffff;
+  --nc-text-inverse: #000000;
+  --nc-muted: #c2c2c2;
+  --nc-accent: #7e57c2;
+  --nc-select: rgba(126, 87, 194, 0.45);
+  --nc-row: #303030;
+  --nc-row-alt: rgba(255, 255, 255, 0.05);
+  --nc-header: #5e5e5e;
+  --nc-input: #202020;
+  --nc-ok: #66bb6a;
+  --nc-warn: #ef5350;
+  --nc-border-light: #8e8e8e;
+  --nc-border-dark: #5d5d5d;
+  --nc-border-black: #000000;
+}
+
+body[data-theme^="ncurses-"] .menu-bar-wrap,
+body[data-theme^="ncurses-"] .controls,
+body[data-theme^="ncurses-"] .table-zone,
+body[data-theme^="ncurses-"] .table-content,
+body[data-theme^="ncurses-"] .table-scroll,
+body[data-theme^="ncurses-"] .meta-row,
+body[data-theme^="ncurses-"] .file-tabs,
+body[data-theme^="ncurses-"] .group-by-zone,
+body[data-theme^="ncurses-"] .help-panel,
+body[data-theme^="ncurses-"] .column-context-menu,
+body[data-theme^="ncurses-"] .field-context-menu,
+body[data-theme^="ncurses-"] .menu-dropdown,
+body[data-theme^="ncurses-"] .menu-submenu,
+body[data-theme^="ncurses-"] .cell-overlay-value,
+body[data-theme^="ncurses-"] .row-details-log,
+body[data-theme^="ncurses-"] .column-stats-item,
+body[data-theme^="ncurses-"] .column-stats-top-values {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body[data-theme^="ncurses-"] .menu-bar-wrap,
+body[data-theme^="ncurses-"] .controls,
+body[data-theme^="ncurses-"] .meta-row,
+body[data-theme^="ncurses-"] .file-tabs,
+body[data-theme^="ncurses-"] .group-by-zone,
+body[data-theme^="ncurses-"] .menu-dropdown,
+body[data-theme^="ncurses-"] .menu-submenu,
+body[data-theme^="ncurses-"] .column-context-menu,
+body[data-theme^="ncurses-"] .field-context-menu,
+body[data-theme^="ncurses-"] .help-panel,
+body[data-theme^="ncurses-"] .column-stats-item,
+body[data-theme^="ncurses-"] .column-stats-top-values {
+  background: var(--nc-panel);
+  color: var(--nc-text);
+}
+
+body[data-theme^="ncurses-"] .global-search-wrap,
+body[data-theme^="ncurses-"] .find-wrap,
+body[data-theme^="ncurses-"] .time-window-wrap,
+body[data-theme^="ncurses-"] .sqlite-table-wrap,
+body[data-theme^="ncurses-"] .group-by-prefix,
+body[data-theme^="ncurses-"] .group-by-label,
+body[data-theme^="ncurses-"] .group-by-hint,
+body[data-theme^="ncurses-"] .find-count,
+body[data-theme^="ncurses-"] .time-window-sep {
+  color: var(--nc-text);
+}
+
+body[data-theme^="ncurses-"] .app-shell {
+  background: var(--nc-bg);
+}
+
+body[data-theme^="ncurses-"] .table-zone,
+body[data-theme^="ncurses-"] .table-content,
+body[data-theme^="ncurses-"] .table-scroll {
+  background: var(--nc-row);
+}
+
+body[data-theme^="ncurses-"] .menu-button,
+body[data-theme^="ncurses-"] .tool-btn,
+body[data-theme^="ncurses-"] .file-tab,
+body[data-theme^="ncurses-"] .menu-action,
+body[data-theme^="ncurses-"] .context-menu-item,
+body[data-theme^="ncurses-"] .group-by-chip {
+  border-radius: 0;
+  border-top: 1px solid var(--nc-border-light);
+  border-left: 1px solid var(--nc-border-light);
+  border-right: 1px solid var(--nc-border-black);
+  border-bottom: 1px solid var(--nc-border-black);
+}
+
+body[data-theme^="ncurses-"] .file-tab {
+  background: var(--nc-panel-alt);
+  color: var(--nc-text);
+}
+
+body[data-theme^="ncurses-"] .file-tab.is-active {
+  background: var(--nc-row);
+  color: var(--nc-text);
+  top: 0;
+}
+
+body[data-theme^="ncurses-"] .menu-button:hover,
+body[data-theme^="ncurses-"] .menu-button[aria-expanded="true"],
+body[data-theme^="ncurses-"] .tool-btn:hover,
+body[data-theme^="ncurses-"] .menu-action:hover,
+body[data-theme^="ncurses-"] .context-menu-item:hover,
+body[data-theme^="ncurses-"] .file-tab:hover {
+  background: var(--nc-select);
+  color: var(--nc-text);
+}
+
+body[data-theme^="ncurses-"] .tool-btn:active,
+body[data-theme^="ncurses-"] .menu-button:active,
+body[data-theme^="ncurses-"] .file-tab.is-active {
+  border-top: 1px solid var(--nc-border-black);
+  border-left: 1px solid var(--nc-border-black);
+  border-right: 1px solid var(--nc-border-light);
+  border-bottom: 1px solid var(--nc-border-light);
+}
+
+body[data-theme^="ncurses-"] .global-search-input,
+body[data-theme^="ncurses-"] .find-input,
+body[data-theme^="ncurses-"] .time-window-input,
+body[data-theme^="ncurses-"] .sqlite-table-select,
+body[data-theme^="ncurses-"] .advanced-search-input,
+body[data-theme^="ncurses-"] .filter-input,
+body[data-theme^="ncurses-"] .filter-operator,
+body[data-theme^="ncurses-"] .cell-font-slider,
+body[data-theme^="ncurses-"] .row-font-slider,
+body[data-theme^="ncurses-"] .row-details-value {
+  background: var(--nc-input);
+  color: var(--nc-text);
+  border-radius: 0;
+  border-top: 1px solid var(--nc-border-black);
+  border-left: 1px solid var(--nc-border-black);
+  border-right: 1px solid var(--nc-border-dark);
+  border-bottom: 1px solid var(--nc-border-dark);
+}
+
+body[data-theme^="ncurses-"] .data-table {
+  background: var(--nc-row);
+  color: var(--nc-text);
+}
+
+body[data-theme^="ncurses-"] .data-table th,
+body[data-theme^="ncurses-"] .data-table th.selection-col {
+  background: var(--nc-header);
+  color: var(--nc-text);
+  border-right-color: var(--nc-border-black);
+  border-bottom-color: var(--nc-border-black);
+  font-weight: 400;
+}
+
+body[data-theme^="ncurses-"] .data-table td {
+  background: var(--nc-row);
+  color: var(--nc-text);
+  border-right-color: var(--nc-border-dark);
+  border-bottom-color: var(--nc-border-dark);
+}
+
+body[data-theme^="ncurses-"] .data-table tbody tr:nth-child(even) td {
+  background: var(--nc-row-alt);
+}
+
+body[data-theme^="ncurses-"] .data-table tbody tr:hover td,
+body[data-theme^="ncurses-"] .data-table tbody tr.row-selected td,
+body[data-theme^="ncurses-"] .data-table tbody tr.group-header-row td {
+  background: var(--nc-select);
+}
+
+body[data-theme^="ncurses-"] .loading-progress-track {
+  background: var(--nc-panel);
+  border-color: var(--nc-border-black);
+  box-shadow: none;
+}
+
+body[data-theme^="ncurses-"] .loading-progress-bar {
+  background: linear-gradient(90deg, var(--nc-accent), color-mix(in srgb, var(--nc-accent) 68%, #ffffff));
+}
+
+body[data-theme^="ncurses-"] .help-close-btn,
+body[data-theme^="ncurses-"] .file-tab-close {
+  color: var(--nc-text);
+  background: var(--nc-panel);
+}
+
+body[data-theme^="ncurses-"] .help-close-btn {
+  border-radius: 0;
+  border-top: 1px solid var(--nc-border-light);
+  border-left: 1px solid var(--nc-border-light);
+  border-right: 1px solid var(--nc-border-black);
+  border-bottom: 1px solid var(--nc-border-black);
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0;
+}
+
+body[data-theme^="ncurses-"] .help-close-btn::before {
+  content: "x";
+  font-size: 16px;
+  line-height: 1;
+  font-family: fixedsys, "Courier New", Consolas, monospace;
+  color: var(--nc-text);
+}
+
+body[data-theme^="ncurses-"] .help-close-btn:hover {
+  background: var(--nc-warn);
+}
+
+body[data-theme^="ncurses-"] .file-tab-close:hover {
+  color: var(--nc-text);
+  background: var(--nc-warn);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+body[data-theme^="ncurses-"] .title-bar,
+body[data-theme^="ncurses-"] .help-panel-header,
+body[data-theme^="ncurses-"] .row-details-header {
+  background: var(--nc-panel-alt);
+  color: var(--nc-text);
+}
+
+body[data-theme^="ncurses-"] .help-panel-header .help-title,
+body[data-theme^="ncurses-"] .help-panel-header .title-bar-text,
+body[data-theme^="ncurses-"] #rowDetailsTitle {
+  color: var(--nc-text) !important;
+  background: transparent;
+  text-shadow: none;
+}
+
+body[data-theme^="ncurses-"] .menu-action[aria-checked="true"] {
+  background: var(--nc-select);
+}
+
+body[data-theme="ncurses-light"] .data-table td.row-number-cell,
+body[data-theme="ncurses-light"] .data-table th.row-number-col,
+body[data-theme="ncurses-light"] .status,
+body[data-theme="ncurses-light"] .loading-progress-text {
+  color: #1d1d1d;
+}
+
+body[data-theme="ncurses-dark"] .data-table td.row-number-cell,
+body[data-theme="ncurses-dark"] .data-table th.row-number-col,
+body[data-theme="ncurses-dark"] .status,
+body[data-theme="ncurses-dark"] .loading-progress-text {
+  color: #f4f4f4;
+}

@@ -1,6 +1,6 @@
 const THEME_STORAGE_KEY = "timelineExploderTheme";
 const DEFAULT_THEME = "material-light";
-const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "ios-light", "ios-dark", "adx-light", "adx-dark", "cyberpunk", "windows-xp"]);
+const SUPPORTED_THEMES = new Set(["light", "dark", "material-light", "material-dark", "ios-light", "ios-dark", "adx-light", "adx-dark", "cyberpunk", "windows-xp", "strawberry-pink", "ncurses-light", "ncurses-dark"]);
 const THEME_LABELS = {
   "material-light": "Material Light",
   "material-dark": "Material Dark",
@@ -11,7 +11,10 @@ const THEME_LABELS = {
   "ios-light": "iOS Light",
   "ios-dark": "iOS Dark",
   "cyberpunk": "Cyberpunk",
-  "windows-xp": "Windows XP"
+  "windows-xp": "Windows XP",
+  "strawberry-pink": "Strawberry Pink",
+  "ncurses-light": "Ncurses Light",
+  "ncurses-dark": "Ncurses Dark"
 };
 
 const THEME_MENU_ITEMS = {
@@ -24,7 +27,10 @@ const THEME_MENU_ITEMS = {
   "ios-light": document.getElementById("themeIosLightMenuItem"),
   "ios-dark": document.getElementById("themeIosDarkMenuItem"),
   "cyberpunk": document.getElementById("themeCyberpunkMenuItem"),
-  "windows-xp": document.getElementById("themeWindowsXpMenuItem")
+  "windows-xp": document.getElementById("themeWindowsXpMenuItem"),
+  "strawberry-pink": document.getElementById("themeStrawberryPinkMenuItem"),
+  "ncurses-light": document.getElementById("themeNcursesLightMenuItem"),
+  "ncurses-dark": document.getElementById("themeNcursesDarkMenuItem")
 };
 
 const XP_CSS_ID = "timeline-exploder-xp-css";
