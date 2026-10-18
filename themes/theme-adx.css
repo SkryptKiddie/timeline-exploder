@@ -330,3 +330,28 @@ body[data-theme^="adx-"] .column-stats-top-values li {
 body[data-theme^="adx-"] .loading-progress-bar {
   background: var(--adx-accent);
 }
+
+body[data-theme^="adx-"] .help-close-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--win-border-dark);
+  background: var(--adx-input);
+  color: var(--win-text);
+  box-shadow: none;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+body[data-theme^="adx-"] .help-close-btn::before {
+  content: "\00D7";
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+body[data-theme^="adx-"] .help-close-btn:hover {
+  background: color-mix(in srgb, var(--adx-hover) 62%, #ff4d4f 38%);
+  border-color: #d13438;
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(209, 52, 56, 0.36), 0 0 12px rgba(209, 52, 56, 0.34);
+}

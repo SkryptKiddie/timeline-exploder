@@ -519,8 +519,31 @@ body[data-theme^="material-"] .row-details-copy-btn:active {
 body[data-theme^="material-"] .help-close-btn {
   width: 36px;
   height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
   font-size: 24px;
   line-height: 1;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+body[data-theme^="material-"] .help-close-btn::before {
+  content: "\00D7";
+  display: block;
+  font-weight: 700;
+  line-height: 1;
+}
+
+body[data-theme^="material-"] .help-close-btn:hover {
+  background: color-mix(in srgb, var(--material-hover) 58%, #ef4444 42%);
+  color: #b91c1c;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.26), 0 0 14px rgba(239, 68, 68, 0.34);
+}
+
+body[data-theme^="material-"] .help-close-btn:active {
+  background: color-mix(in srgb, var(--material-active) 42%, #ef4444 58%);
+  color: #991b1b;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.3), 0 0 10px rgba(239, 68, 68, 0.3);
 }
 
 body[data-theme^="material-"] .cell-font-btn {
@@ -532,3 +555,14 @@ body[data-theme^="material-"] .row-details-copy-btn {
   padding: 0 16px;
 }
 
+body[data-theme^="material-"] .row-details-copy-btn:hover {
+  padding: 0 16px;
+  background-color: #90caf9;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+body[data-theme^="material-"] .row-details-copy-btn:active {
+  padding: 0 16px;
+  background-color: #1976d2;
+  color: #fff;
+}

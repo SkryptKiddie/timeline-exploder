@@ -234,6 +234,12 @@ body[data-theme="windows-xp"] .file-tab-label {
 body[data-theme="windows-xp"] .file-tab-close {
   width: 16px;
   height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-right: 4px;
   border-radius: 2px;
 }
@@ -315,7 +321,24 @@ body[data-theme="windows-xp"] .advanced-search-wrap.drag-over .advanced-search-i
   box-shadow: 0 0 0 2px rgba(106, 191, 68, 0.28);
 }
 
+body[data-theme="windows-xp"] .col-sort-btn {
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  min-height: 12px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 body[data-theme="windows-xp"] .row-menu-trigger {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   color: #316ac5;
 }
 
@@ -325,6 +348,31 @@ body[data-theme="windows-xp"] .row-menu-trigger:hover {
 
 body[data-theme="windows-xp"] .row-menu-trigger:focus-visible {
   outline-color: #3f8cf0;
+}
+
+body[data-theme="windows-xp"] .selection-cell-inner {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 22px;
+}
+
+body[data-theme="windows-xp"] .row-checkbox,
+body[data-theme="windows-xp"] .select-all-checkbox {
+  position: static !important;
+  opacity: 1 !important;
+  appearance: auto !important;
+  -webkit-appearance: auto !important;
+  -moz-appearance: auto !important;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  background: #ffffff;
+  border: 1px solid #7f9db9;
+  box-shadow: none !important;
+  vertical-align: middle;
 }
 
 body[data-theme="windows-xp"] .help-panel,
