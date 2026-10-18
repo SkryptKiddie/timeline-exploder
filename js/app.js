@@ -147,6 +147,8 @@ const state = {
   fileType: "",
   sqliteTables: [],
   sqliteTableName: "",
+  xlsxSheets: [],
+  xlsxSheetName: "",
   datetimeHeaders: [],
   timeWindow: {
     enabled: false,
@@ -243,6 +245,8 @@ const tabDragState = {
   targetIndex: -1,
   targetPosition: null
 };
+
+const xlsxSupport = window.timelineExploderXlsxSupport || null;
 
 const RENDER_BATCH_SIZE = 350;
 const RENDER_PROGRESS_MIN_ROWS = 1200;
@@ -832,6 +836,8 @@ function createTabSnapshotFromState() {
     fileType: state.fileType,
     sqliteTables: [...state.sqliteTables],
     sqliteTableName: state.sqliteTableName,
+    xlsxSheets: [...state.xlsxSheets],
+    xlsxSheetName: state.xlsxSheetName,
     datetimeHeaders: [...state.datetimeHeaders],
     timeWindow: { ...state.timeWindow },
     groupByColumns: [...state.groupByColumns],
@@ -872,6 +878,8 @@ function applyTabSnapshot(snapshot) {
   state.fileType = snapshot.fileType || "";
   state.sqliteTables = [...(snapshot.sqliteTables || [])];
   state.sqliteTableName = snapshot.sqliteTableName || "";
+  state.xlsxSheets = [...(snapshot.xlsxSheets || [])];
+  state.xlsxSheetName = snapshot.xlsxSheetName || "";
   state.datetimeHeaders = [...(snapshot.datetimeHeaders || [])];
   state.timeWindow = snapshot.timeWindow ? { ...snapshot.timeWindow } : { enabled: false, column: "", start: "", end: "" };
   state.groupByColumns = [...(snapshot.groupByColumns || [])];
@@ -1560,11 +1568,23 @@ async function isSupportedUploadFile(file) {
   }
 
   const extension = getFileExtension(file.name);
-  if (extension === "csv" || extension === "tsv" || extension === "json" || extension === "db" || extension === "sqlite" || extension === "sqlite3") {
+  if (
+    extension === "csv"
+    || extension === "tsv"
+    || extension === "json"
+    || extension === "db"
+    || extension === "sqlite"
+    || extension === "sqlite3"
+    || isXlsxExtension(extension)
+  ) {
     return true;
   }
 
   if (type === "application/vnd.sqlite3" || type === "application/x-sqlite3") {
+    return true;
+  }
+
+  if (isXlsxMimeType(type)) {
     return true;
   }
 
@@ -1611,14 +1631,20 @@ async function loadFile(file) {
     state.fileType = file.type || "";
     state.sqliteTables = [];
     state.sqliteTableName = "";
+    state.xlsxSheets = [];
+    state.xlsxSheetName = "";
     updateDocumentTitle();
 
+    const extension = getFileExtension(file.name);
     const isSqlite = await detectSqliteFile(file);
+    const isXlsx = !isSqlite && (isXlsxExtension(extension) || isXlsxMimeType(file.type || ""));
     if (isSqlite) {
       state.fileType = SQLITE_MIME_TYPE;
+    } else if (isXlsx && !state.fileType) {
+      state.fileType = XLSX_MIME_TYPE;
     }
 
-    if (isSqlite) {
+    if (isSqlite || isXlsx) {
       state.fileBuffer = await file.arrayBuffer();
       state.fileText = "";
     } else {
@@ -1641,7 +1667,7 @@ async function loadFile(file) {
     });
     showLoadingProgress(100, "Done");
 
-    const sqliteTableLabel = state.sqliteTableName ? ` (table ${state.sqliteTableName})` : "";
+    const sqliteTableLabel = getSubDatasetStatusLabel();
     newTab.snapshot = createTabSnapshotFromState();
     renderFileTabs();
     setStatus(`Loaded ${state.rows.length} row${state.rows.length === 1 ? "" : "s"} from ${file.name}${sqliteTableLabel}.`, "ok");
@@ -1746,16 +1772,23 @@ async function onDocumentFileDrop(event) {
 
 async function parseCurrentFile() {
   const extension = state.fileName.split(".").pop()?.toLowerCase() || "";
-  if (state.fileBuffer || isSqliteExtension(extension) || state.fileType.toLowerCase().includes("sqlite")) {
-    if (!state.fileBuffer) {
-      return;
-    }
+  const normalizedType = state.fileType.toLowerCase();
+  const hasBuffer = Boolean(state.fileBuffer);
+
+  if (hasBuffer && (isSqliteExtension(extension) || normalizedType.includes("sqlite"))) {
     await parseSqlite(state.fileBuffer);
+    return;
+  }
+
+  if (hasBuffer && (isXlsxExtension(extension) || isXlsxMimeType(normalizedType))) {
+    parseXlsx(state.fileBuffer);
     return;
   }
 
   state.sqliteTables = [];
   state.sqliteTableName = "";
+  state.xlsxSheets = [];
+  state.xlsxSheetName = "";
   updateSqliteTablePicker();
 
   if (!state.fileText) {
@@ -1771,9 +1804,24 @@ async function parseCurrentFile() {
 
 const SQLITE_MIME_TYPE = "application/vnd.sqlite3";
 const SQLITE_MAGIC = "SQLite format 3\u0000";
+const XLSX_MIME_TYPE = xlsxSupport?.MIME_TYPE || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 function isSqliteExtension(extension) {
   return extension === "sqlite" || extension === "sqlite3" || extension === "db";
+}
+
+function isXlsxExtension(extension) {
+  if (!xlsxSupport || typeof xlsxSupport.isXlsxExtension !== "function") {
+    return false;
+  }
+  return xlsxSupport.isXlsxExtension(extension);
+}
+
+function isXlsxMimeType(type) {
+  if (!xlsxSupport || typeof xlsxSupport.isXlsxMimeType !== "function") {
+    return false;
+  }
+  return xlsxSupport.isXlsxMimeType(type);
 }
 
 // Detects SQLite by content (magic header) first, then MIME type, then extension.
@@ -1817,6 +1865,9 @@ async function parseSqlite(buffer) {
   const db = new SQL.Database(new Uint8Array(buffer));
 
   try {
+    state.xlsxSheets = [];
+    state.xlsxSheetName = "";
+
     const tableMeta = db.exec(
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
     );
@@ -1857,47 +1908,117 @@ async function parseSqlite(buffer) {
   }
 }
 
+function parseXlsx(buffer) {
+  if (!xlsxSupport || typeof xlsxSupport.parseWorkbook !== "function") {
+    throw new Error("XLSX support module is unavailable.");
+  }
+
+  const workbookData = xlsxSupport.parseWorkbook(buffer, state.xlsxSheetName);
+
+  state.sqliteTables = [];
+  state.sqliteTableName = "";
+  state.xlsxSheets = workbookData.sheetNames;
+  state.xlsxSheetName = workbookData.selectedSheetName;
+
+  updateSqliteTablePicker();
+
+  const rowsMatrix = workbookData.matrix;
+  if (!rowsMatrix.length) {
+    hydrateState([], []);
+    return;
+  }
+
+  if (state.firstRowIsHeader) {
+    const headerRow = Array.isArray(rowsMatrix[0]) ? rowsMatrix[0] : [];
+    const width = rowsMatrix.reduce((max, row) => Math.max(max, Array.isArray(row) ? row.length : 0), 0);
+    const headers = Array.from({ length: width }, (_, index) => String(headerRow[index] || `Column ${index + 1}`).trim() || `Column ${index + 1}`);
+    const bodyRows = rowsMatrix.slice(1).map((row) => normalizeArrayRow(Array.isArray(row) ? row : [], headers));
+    hydrateState(headers, bodyRows);
+    return;
+  }
+
+  const width = rowsMatrix.reduce((max, row) => Math.max(max, Array.isArray(row) ? row.length : 0), 0);
+  const headers = Array.from({ length: width }, (_, index) => `Column ${index + 1}`);
+  const rows = rowsMatrix.map((row) => normalizeArrayRow(Array.isArray(row) ? row : [], headers));
+  hydrateState(headers, rows);
+}
+
 function updateSqliteTablePicker() {
-  const shouldShow = state.sqliteTables.length > 0;
+  const hasSqliteTables = state.sqliteTables.length > 0;
+  const hasXlsxSheets = state.xlsxSheets.length > 0;
+  const shouldShow = hasSqliteTables || hasXlsxSheets;
   sqliteTableWrap.classList.toggle("hidden", !shouldShow);
 
   if (!shouldShow) {
     sqliteTableSelect.innerHTML = "";
+    sqliteTableSelect.setAttribute("aria-label", "Select dataset table");
     return;
   }
 
   sqliteTableSelect.innerHTML = "";
-  state.sqliteTables.forEach((tableName) => {
+  const options = hasSqliteTables ? state.sqliteTables : state.xlsxSheets;
+  const selectedValue = hasSqliteTables ? state.sqliteTableName : state.xlsxSheetName;
+  const ariaLabel = hasSqliteTables ? "Select SQLite table" : "Select workbook sheet";
+
+  options.forEach((tableName) => {
     const option = document.createElement("option");
     option.value = tableName;
     option.textContent = tableName;
     sqliteTableSelect.appendChild(option);
   });
 
-  sqliteTableSelect.value = state.sqliteTableName;
+  sqliteTableSelect.value = selectedValue;
+  sqliteTableSelect.setAttribute("aria-label", ariaLabel);
 }
 
 async function onSqliteTableChange(event) {
   const nextTable = event.target.value;
-  if (!nextTable || nextTable === state.sqliteTableName || !state.fileBuffer) {
+  if (!nextTable || !state.fileBuffer) {
     return;
   }
 
-  state.sqliteTableName = nextTable;
+  const hasSqliteTables = state.sqliteTables.length > 0;
+  const hasXlsxSheets = state.xlsxSheets.length > 0;
+  if (!hasSqliteTables && !hasXlsxSheets) {
+    return;
+  }
+
+  if (hasSqliteTables) {
+    if (nextTable === state.sqliteTableName) {
+      return;
+    }
+    state.sqliteTableName = nextTable;
+  } else {
+    if (nextTable === state.xlsxSheetName) {
+      return;
+    }
+    state.xlsxSheetName = nextTable;
+  }
 
   try {
-    showLoadingProgress(35, `Loading table ${nextTable}...`);
+    const loadingLabel = hasSqliteTables ? `Loading table ${nextTable}...` : `Loading sheet ${nextTable}...`;
+    showLoadingProgress(35, loadingLabel);
     await yieldToBrowser();
     await parseCurrentFile();
     applyFilters();
     await renderTable();
     hideLoadingProgress();
-    setStatus(`Showing SQLite table ${nextTable}.`, "ok");
+    setStatus(hasSqliteTables ? `Showing SQLite table ${nextTable}.` : `Showing sheet ${nextTable}.`, "ok");
   } catch (error) {
     console.error(error);
     hideLoadingProgress();
-    setStatus(`Could not load table ${nextTable}.`, "warn");
+    setStatus(hasSqliteTables ? `Could not load table ${nextTable}.` : `Could not load sheet ${nextTable}.`, "warn");
   }
+}
+
+function getSubDatasetStatusLabel() {
+  if (state.sqliteTableName) {
+    return ` (table ${state.sqliteTableName})`;
+  }
+  if (state.xlsxSheetName) {
+    return ` (sheet ${state.xlsxSheetName})`;
+  }
+  return "";
 }
 
 function openFilePicker() {
@@ -3741,6 +3862,8 @@ function resetState() {
   state.fileType = "";
   state.sqliteTables = [];
   state.sqliteTableName = "";
+  state.xlsxSheets = [];
+  state.xlsxSheetName = "";
   state.datetimeHeaders = [];
   state.timeWindow = { enabled: false, column: "", start: "", end: "" };
   globalSearchInput.value = "";

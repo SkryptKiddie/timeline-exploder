@@ -1,12 +1,12 @@
 # Timeline Exploder
 
-A lightweight, browser-based CSV/JSON/SQLite explorer for large tabular datasets. Inspired by Eric Zimmerman's Timeline Explorer.
+A lightweight, browser-based CSV/JSON/SQLite/XLSX explorer for large tabular datasets. Inspired by Eric Zimmerman's Timeline Explorer.
 
 ![Screenshot of Timeline Exploder](example.png)
 
 ## What It Does
 
-- Opens local `.csv`, `.json` and `sqlite` files directly in the browser,
+- Opens local `.csv`, `.json`, `.sqlite` and `.xlsx` files directly in the browser,
 - Supports CSV with or without header row,
 - Supports JSON as:
   - `[{...}, {...}]` (array of objects)
@@ -24,6 +24,7 @@ A lightweight, browser-based CSV/JSON/SQLite explorer for large tabular datasets
 - `Open File` button and `File > Open...` menu
 - Automatic parsing and normalization of CSV/JSON values
 - Support for SQLite databases with multiple tables
+- Support for Excel workbooks with multiple sheets
 
 ### Filtering & Search
 

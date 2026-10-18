@@ -32,7 +32,7 @@
       <div id="fileDropOverlay" class="file-drop-overlay" aria-hidden="true">
         <div class="file-drop-panel" role="status" aria-live="polite">
           <p class="file-drop-title">Drop File to Open</p>
-          <p class="file-drop-subtitle">CSV, JSON, and SQLite files are supported</p>
+          <p class="file-drop-subtitle">CSV, JSON, SQLite, and Excel files are supported</p>
         </div>
       </div>
 
@@ -147,7 +147,7 @@
           </nav>
         </header>
 
-        <input id="fileInput" class="hidden-file-input" type="file" multiple accept=".csv,.tsv,.json,.db,.sqlite,.sqlite3,text/csv,text/plain,text/tab-separated-values,application/json,application/vnd.sqlite3,application/x-sqlite3" />
+        <input id="fileInput" class="hidden-file-input" type="file" multiple accept=".csv,.tsv,.json,.db,.sqlite,.sqlite3,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.xls,text/csv,text/plain,text/tab-separated-values,application/json,application/vnd.sqlite3,application/x-sqlite3,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.ms-excel.sheet.macroenabled.12,application/vnd.ms-excel.sheet.binary.macroenabled.12,application/vnd.openxmlformats-officedocument.spreadsheetml.template,application/vnd.ms-excel.template.macroenabled.12" />
 
         <section class="controls">
           <div class="toolbar">
@@ -160,7 +160,7 @@
           <div class="status-wrap">
             <div class="status-line">
               <span id="loadingSpinner" class="loading-spinner hidden" aria-hidden="true"></span>
-              <p id="status" class="status" aria-live="polite">Use File > Open, the Open File button, or drag and drop a file to load CSV/JSON/SQLite.</p>
+              <p id="status" class="status" aria-live="polite">Use File > Open, the Open File button, or drag and drop a file to load CSV/JSON/SQLite/XLSX.</p>
             </div>
             <div id="loadingProgressWrap" class="loading-progress hidden">
               <div class="loading-progress-track">
@@ -187,7 +187,7 @@
             </div>
           </div>
           <div class="help-panel-body window-body">
-            <p>Timeline Exploder is a simple, web-based utility for browsing CSV, JSON and SQLite files. It is heavily inspired from <a href="https://www.sans.org/tools/timeline-explorer" target="_blank">Eric Zimmerman's Timeline Explorer</a>.</p>
+            <p>Timeline Exploder is a simple, web-based utility for browsing CSV, JSON, SQLite, and Excel files. It is heavily inspired from <a href="https://www.sans.org/tools/timeline-explorer" target="_blank">Eric Zimmerman's Timeline Explorer</a>.</p>
             <p>All processing is handled on the client-site, <strong>no data is sent to any server.</strong></p>
             <p><strong>Keyboard shortcuts:</strong><br />
               Cmd/Ctrl+O: Open file<br />
@@ -343,7 +343,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="themes/theme-app.js"></script>
-    <script src="app.js"></script>
+    <script src="js/xlsx.js"></script>
+    <script src="js/app.js"></script>
   </body>
 </html>
