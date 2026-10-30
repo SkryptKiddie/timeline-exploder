@@ -365,6 +365,33 @@
               </div>
             </div>
           </div>
+          <aside id="dataProfilePane" class="row-details-overlay data-profile-pane hidden" aria-labelledby="dataProfileTitle">
+            <div class="help-panel row-details-panel data-profile-panel window">
+              <div class="help-panel-header title-bar">
+                <div id="dataProfileTitle" class="help-title title-bar-text">Data Profile</div>
+                <div class="title-bar-controls">
+                  <button id="dataProfileCloseBtn" class="help-close-btn" type="button" aria-label="Close"></button>
+                </div>
+              </div>
+              <div class="data-profile-summary">
+                <strong id="dataProfileRowCount">0</strong>
+                <span>rows</span>
+                <span id="dataProfileTimeRange"></span>
+              </div>
+              <div class="data-profile-content">
+                <section class="data-profile-columns">
+                  <label for="dataProfileSearch">Columns</label>
+                  <input id="dataProfileSearch" type="search" placeholder="Search columns" />
+                  <div id="dataProfileColumnList" class="data-profile-column-list" role="listbox"></div>
+                </section>
+                <section class="data-profile-detail">
+                  <h3 id="dataProfileColumnTitle">Select a column</h3>
+                  <p id="dataProfileColumnMeta" class="data-profile-column-meta"></p>
+                  <ol id="dataProfileTopValues" class="column-stats-top-values"></ol>
+                </section>
+              </div>
+            </div>
+          </aside>
         </div>
         <div id="columnContextMenu" class="column-context-menu hidden" role="menu">
           <button id="contextMenuPin" class="context-menu-item" type="button" role="menuitem">Pin Column</button>

@@ -248,6 +248,21 @@ body[data-theme="windows-xp"] .file-tab-close:hover {
   background: rgba(49, 106, 197, 0.12);
 }
 
+body[data-theme="windows-xp"] .file-tab-profile {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body[data-theme="windows-xp"] .file-tab-profile:hover {
+  background: rgba(49, 106, 197, 0.12);
+}
+
 body[data-theme="windows-xp"] .table-zone,
 body[data-theme="windows-xp"] .data-table {
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
@@ -394,4 +409,3 @@ body[data-theme="windows-xp"] .help-close-btn {
   height: 18px;
   padding: 0;
 }
-

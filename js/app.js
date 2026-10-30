@@ -102,6 +102,16 @@ const rowFontIncreaseBtn = document.getElementById("rowFontIncreaseBtn");
 const rowFontSizeInput = document.getElementById("rowFontSizeInput");
 const rowFontSizeValue = document.getElementById("rowFontSizeValue");
 const rowDetailsCopyBtn = document.getElementById("rowDetailsCopyBtn");
+const dataProfilePane = document.getElementById("dataProfilePane");
+const dataProfileCloseBtn = document.getElementById("dataProfileCloseBtn");
+const dataProfileTitle = document.getElementById("dataProfileTitle");
+const dataProfileRowCount = document.getElementById("dataProfileRowCount");
+const dataProfileTimeRange = document.getElementById("dataProfileTimeRange");
+const dataProfileSearch = document.getElementById("dataProfileSearch");
+const dataProfileColumnList = document.getElementById("dataProfileColumnList");
+const dataProfileColumnTitle = document.getElementById("dataProfileColumnTitle");
+const dataProfileColumnMeta = document.getElementById("dataProfileColumnMeta");
+const dataProfileTopValues = document.getElementById("dataProfileTopValues");
 const columnStatsOverlay = document.getElementById("columnStatsOverlay");
 const columnStatsCloseBtn = document.getElementById("columnStatsCloseBtn");
 const columnStatsTitle = document.getElementById("columnStatsTitle");
@@ -221,6 +231,11 @@ const fieldContextState = {
   value: "",
   clientX: 0,
   clientY: 0
+};
+
+const dataProfileState = {
+  selectedHeader: "",
+  columnProfiles: []
 };
 
 const fileDropState = {
@@ -1027,7 +1042,21 @@ function renderFileTabs() {
     closeBtn.textContent = "×";
     closeBtn.setAttribute("draggable", "false");
 
+    const profileBtn = document.createElement("button");
+    profileBtn.type = "button";
+    profileBtn.className = "file-tab-profile";
+    profileBtn.setAttribute("aria-label", `Profile ${tab.title}`);
+    profileBtn.dataset.tabProfile = String(tab.id);
+    profileBtn.textContent = "◫";
+    profileBtn.setAttribute("draggable", "false");
+    profileBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      activateTab(tab.id);
+      openDataProfilePane();
+    });
+
     tabWrap.appendChild(tabBtn);
+    tabWrap.appendChild(profileBtn);
     tabWrap.appendChild(closeBtn);
     fileTabs.appendChild(tabWrap);
   });
@@ -1307,6 +1336,9 @@ helpOverlay.addEventListener("click", onHelpOverlayClick);
 cellOverlayCloseBtn.addEventListener("click", closeCellOverlay);
 cellOverlay.addEventListener("click", onCellOverlayClick);
 rowDetailsCloseBtn.addEventListener("click", closeRowDetailsOverlay);
+dataProfileCloseBtn.addEventListener("click", closeDataProfilePane);
+dataProfileSearch.addEventListener("input", renderDataProfileColumns);
+dataProfileColumnList.addEventListener("click", onDataProfileColumnClick);
 columnStatsCloseBtn.addEventListener("click", closeColumnStatsOverlay);
 columnStatsOverlay.addEventListener("click", onColumnStatsOverlayClick);
 if (entropyController) {
@@ -2648,6 +2680,155 @@ function onColumnStatsOverlayClick(event) {
 function closeRowDetailsOverlay() {
   rowDetailsOverlay.classList.add("hidden");
   delete rowDetailsOverlay.dataset.rowId;
+  syncRowDetailsTriggers();
+}
+
+function closeDataProfilePane() {
+  dataProfilePane.classList.add("hidden");
+}
+
+function getDataProfileColumn(header) {
+  const values = state.rows.map((row) => String(row[header] ?? ""));
+  const nonEmptyValues = values.filter((value) => value.trim());
+  const numericValues = nonEmptyValues.filter(isNumericLike).map(Number);
+  const timestampValues = nonEmptyValues.map(parseTimestampValue).filter((value) => value !== null);
+  const valueCounts = new Map();
+
+  values.forEach((value) => valueCounts.set(value, (valueCounts.get(value) || 0) + 1));
+
+  const type = timestampValues.length === nonEmptyValues.length && nonEmptyValues.length
+    ? "datetime"
+    : numericValues.length === nonEmptyValues.length && nonEmptyValues.length
+      ? "number"
+      : "text";
+  const topValues = Array.from(valueCounts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 10)
+    .map(([value, count]) => ({ value, count }));
+
+  return {
+    header,
+    type,
+    emptyCount: values.length - nonEmptyValues.length,
+    distinctCount: valueCounts.size,
+    numericValues,
+    timestampValues,
+    topValues
+  };
+}
+
+function formatDataProfileRange(values, type) {
+  if (!values.length) {
+    return "";
+  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (type === "datetime") {
+    return `${new Date(min).toLocaleString()} - ${new Date(max).toLocaleString()}`;
+  }
+  return `${min} - ${max}`;
+}
+
+function renderDataProfileColumns() {
+  const query = dataProfileSearch.value.trim().toLowerCase();
+  dataProfileColumnList.innerHTML = "";
+
+  dataProfileState.columnProfiles
+    .filter((profile) => profile.header.toLowerCase().includes(query))
+    .forEach((profile) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "data-profile-column";
+      button.dataset.header = profile.header;
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", String(profile.header === dataProfileState.selectedHeader));
+
+      const type = document.createElement("span");
+      type.textContent = profile.type === "number" ? "#" : profile.type === "datetime" ? "◷" : "T";
+      const details = document.createElement("span");
+      const name = document.createElement("span");
+      name.className = "data-profile-column-name";
+      name.textContent = profile.header;
+      const summary = document.createElement("span");
+      summary.className = "data-profile-column-summary";
+      summary.textContent = `${profile.type} · ${formatStatCount(profile.distinctCount)} unique`;
+      details.append(name, summary);
+      button.append(type, details);
+      dataProfileColumnList.appendChild(button);
+    });
+}
+
+function renderDataProfileDetail() {
+  const profile = dataProfileState.columnProfiles.find(({ header }) => header === dataProfileState.selectedHeader);
+  dataProfileTopValues.innerHTML = "";
+  if (!profile) {
+    dataProfileColumnTitle.textContent = "No matching column";
+    dataProfileColumnMeta.textContent = "";
+    return;
+  }
+
+  const rangeValues = profile.type === "number" ? profile.numericValues : profile.timestampValues;
+  const range = (profile.type === "number" || profile.type === "datetime")
+    ? ` · Range: ${formatDataProfileRange(rangeValues, profile.type)}`
+    : "";
+  dataProfileColumnTitle.textContent = profile.header;
+  dataProfileColumnMeta.textContent = `${profile.type} · ${formatStatCount(profile.distinctCount)} unique · ${formatStatCount(profile.emptyCount)} empty${range}`;
+
+  profile.topValues.forEach(({ value, count }) => {
+    const item = document.createElement("li");
+    item.textContent = `${formatTopValueDisplay(value)} - ${formatStatCount(count)} (${formatStatPercent(count, state.rows.length)})`;
+    dataProfileTopValues.appendChild(item);
+  });
+}
+
+function onDataProfileColumnClick(event) {
+  const button = event.target.closest("button[data-header]");
+  if (!button) {
+    return;
+  }
+  dataProfileState.selectedHeader = button.dataset.header || "";
+  renderDataProfileColumns();
+  renderDataProfileDetail();
+}
+
+function openDataProfilePane() {
+  if (!state.headers.length) {
+    return;
+  }
+  dataProfileState.columnProfiles = state.headers.map(getDataProfileColumn);
+  if (!dataProfileState.columnProfiles.some(({ header }) => header === dataProfileState.selectedHeader)) {
+    dataProfileState.selectedHeader = dataProfileState.columnProfiles[0].header;
+  }
+
+  const dateProfile = dataProfileState.columnProfiles.find(({ type }) => type === "datetime");
+  dataProfileTitle.textContent = `${state.fileName || "Data"} Profile`;
+  dataProfileRowCount.textContent = formatStatCount(state.rows.length);
+  dataProfileTimeRange.textContent = dateProfile
+    ? formatDataProfileRange(dateProfile.timestampValues, "datetime")
+    : "No datetime column detected";
+  dataProfileSearch.value = "";
+  renderDataProfileColumns();
+  renderDataProfileDetail();
+
+  closeRowDetailsOverlay();
+  closeCellOverlay();
+  closeColumnStatsOverlay();
+  dataProfilePane.classList.remove("hidden");
+  dataProfileCloseBtn.focus();
+}
+
+function setRowDetailsTriggerState(button, isOpen) {
+  button.setAttribute("aria-expanded", String(isOpen));
+  button.title = isOpen ? "Row details open" : "Open row details";
+  button.textContent = isOpen ? "\u25BE" : "\u25B8";
+}
+
+function syncRowDetailsTriggers() {
+  const openRowId = rowDetailsOverlay.dataset.rowId || "";
+  const isOverlayOpen = !rowDetailsOverlay.classList.contains("hidden");
+  document.querySelectorAll(".row-menu-trigger").forEach((button) => {
+    setRowDetailsTriggerState(button, isOverlayOpen && button.dataset.rowId === openRowId);
+  });
 }
 
 function navigateRowDetails(direction) {
@@ -2785,6 +2966,7 @@ function openRowDetailsOverlay(rowId) {
   }
 
   rowDetailsOverlay.classList.remove("hidden");
+  syncRowDetailsTriggers();
   rowDetailsCloseBtn.focus();
 }
 
@@ -4443,8 +4625,11 @@ function appendDataRow(tbody, row, visibleHeaders) {
   rowMenuBtn.type = "button";
   rowMenuBtn.className = "row-menu-trigger";
   rowMenuBtn.dataset.rowId = row.__rowId;
-  rowMenuBtn.title = "Open row details";
-  rowMenuBtn.textContent = "\u25B8";
+  rowMenuBtn.setAttribute("aria-controls", "rowDetailsOverlay");
+  setRowDetailsTriggerState(
+    rowMenuBtn,
+    !rowDetailsOverlay.classList.contains("hidden") && rowDetailsOverlay.dataset.rowId === row.__rowId
+  );
   rowMenuBtn.addEventListener("click", onRowMenuTriggerClick);
 
   const checkbox = document.createElement("input");
