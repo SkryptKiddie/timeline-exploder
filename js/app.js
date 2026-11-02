@@ -269,11 +269,14 @@ const tabDragState = {
   targetPosition: null
 };
 
+const sqliteSupport = window.timelineExploderSqliteSupport || null;
 const xlsxSupport = window.timelineExploderXlsxSupport || null;
 
 const RENDER_BATCH_SIZE = 350;
 const RENDER_PROGRESS_MIN_ROWS = 1200;
 const AUTO_VIRTUALIZE_THRESHOLD_BYTES = 1024 * 1024;
+const AUTO_VIRTUALIZE_THRESHOLD_ROWS = 2000;
+const AUTO_VIRTUALIZE_THRESHOLD_CELLS = 50000;
 const ROW_NUMBER_VISIBILITY_STORAGE_KEY = "timelineExploderShowRowNumbers";
 const CELL_OVERLAY_FONT_MIN = 10;
 const CELL_OVERLAY_FONT_MAX = 28;
@@ -281,7 +284,6 @@ const FILE_TAB_LABEL_MAX = 28;
 const ADVANCED_FIELD_DRAG_MIME = "application/x-timeline-exploder-header";
 const BLOCKED_UPLOAD_MIME_PREFIXES = ["image/", "video/", "audio/", "font/"];
 const BLOCKED_UPLOAD_MIME_TYPES = new Set(["application/pdf", "application/zip", "application/x-zip-compressed", "application/x-rar-compressed", "application/x-7z-compressed"]);
-let sqlJsInitPromise = null;
 let cellOverlayFontSize = 12;
 let rowDetailsFontSize = 12;
 
@@ -317,7 +319,10 @@ const virtualState = {
   overscan: 12,
   scrollRaf: null,
   scrollListenerAttached: false,
-  lastRangeKey: ""
+  lastRangeKey: "",
+  mode: "",
+  groupedItems: [],
+  groupedHeaders: []
 };
 
 const FILTER_OPERATORS = [
@@ -333,6 +338,12 @@ const FILTER_OPERATORS = [
 
 function filterOperatorNeedsValue(operator) {
   return operator !== "is_empty" && operator !== "is_not_empty";
+}
+
+function shouldAutoVirtualize() {
+  const rowCount = state.rows.length;
+  return rowCount >= AUTO_VIRTUALIZE_THRESHOLD_ROWS
+    || rowCount * state.headers.length >= AUTO_VIRTUALIZE_THRESHOLD_CELLS;
 }
 
 function normalizeFilterDefinition(filterDef) {
@@ -1647,15 +1658,13 @@ async function isSupportedUploadFile(file) {
     extension === "csv"
     || extension === "tsv"
     || extension === "json"
-    || extension === "db"
-    || extension === "sqlite"
-    || extension === "sqlite3"
+    || (sqliteSupport && sqliteSupport.isSqliteExtension(extension))
     || isXlsxExtension(extension)
   ) {
     return true;
   }
 
-  if (type === "application/vnd.sqlite3" || type === "application/x-sqlite3") {
+  if (sqliteSupport && sqliteSupport.isSqliteMimeType(type)) {
     return true;
   }
 
@@ -1663,7 +1672,7 @@ async function isSupportedUploadFile(file) {
     return true;
   }
 
-  if (await detectSqliteFile(file)) {
+  if (sqliteSupport && await sqliteSupport.isSqliteFile(file)) {
     return true;
   }
 
@@ -1711,10 +1720,10 @@ async function loadFile(file) {
     updateDocumentTitle();
 
     const extension = getFileExtension(file.name);
-    const isSqlite = await detectSqliteFile(file);
+    const isSqlite = sqliteSupport && await sqliteSupport.isSqliteFile(file);
     const isXlsx = !isSqlite && (isXlsxExtension(extension) || isXlsxMimeType(file.type || ""));
     if (isSqlite) {
-      state.fileType = SQLITE_MIME_TYPE;
+      state.fileType = sqliteSupport.MIME_TYPE;
     } else if (isXlsx && !state.fileType) {
       state.fileType = XLSX_MIME_TYPE;
     }
@@ -1730,6 +1739,10 @@ async function loadFile(file) {
     showLoadingProgress(25, "Parsing file...");
     await yieldToBrowser();
     await parseCurrentFile();
+    if (shouldAutoVirtualize()) {
+      state.virtualizedRendering = true;
+      syncMenuCheckboxStates();
+    }
 
     showLoadingProgress(55, "Applying filters...");
     applyFilters();
@@ -1851,7 +1864,7 @@ async function parseCurrentFile() {
   const normalizedType = state.fileType.toLowerCase();
   const hasBuffer = Boolean(state.fileBuffer);
 
-  if (hasBuffer && (isSqliteExtension(extension) || normalizedType.includes("sqlite"))) {
+  if (hasBuffer && sqliteSupport && sqliteSupport.isSqliteFileType(extension, normalizedType)) {
     await parseSqlite(state.fileBuffer);
     return;
   }
@@ -1878,13 +1891,7 @@ async function parseCurrentFile() {
   }
 }
 
-const SQLITE_MIME_TYPE = "application/vnd.sqlite3";
-const SQLITE_MAGIC = "SQLite format 3\u0000";
 const XLSX_MIME_TYPE = xlsxSupport?.MIME_TYPE || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
-function isSqliteExtension(extension) {
-  return extension === "sqlite" || extension === "sqlite3" || extension === "db";
-}
 
 function isXlsxExtension(extension) {
   if (!xlsxSupport || typeof xlsxSupport.isXlsxExtension !== "function") {
@@ -1900,88 +1907,18 @@ function isXlsxMimeType(type) {
   return xlsxSupport.isXlsxMimeType(type);
 }
 
-// Detects SQLite by content (magic header) first, then MIME type, then extension.
-async function detectSqliteFile(file) {
-  try {
-    const header = new Uint8Array(await file.slice(0, SQLITE_MAGIC.length).arrayBuffer());
-    if (header.length === SQLITE_MAGIC.length && SQLITE_MAGIC.split("").every((ch, i) => header[i] === ch.charCodeAt(0))) {
-      return true;
-    }
-  } catch (error) {
-    // Fall through to metadata checks.
-  }
-  const type = (file.type || "").toLowerCase();
-  if (type.includes("sqlite")) {
-    return true;
-  }
-  return isSqliteExtension(file.name.split(".").pop()?.toLowerCase() || "");
-}
-
-function quoteSqliteIdentifier(name) {
-  return `"${String(name).replace(/"/g, '""')}"`;
-}
-
-async function getSqlJs() {
-  if (sqlJsInitPromise) {
-    return sqlJsInitPromise;
-  }
-
-  if (typeof initSqlJs !== "function") {
-    throw new Error("sql.js runtime is unavailable.");
-  }
-
-  sqlJsInitPromise = initSqlJs({
-    locateFile: (fileName) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${fileName}`
-  });
-  return sqlJsInitPromise;
-}
-
 async function parseSqlite(buffer) {
-  const SQL = await getSqlJs();
-  const db = new SQL.Database(new Uint8Array(buffer));
-
-  try {
-    state.xlsxSheets = [];
-    state.xlsxSheetName = "";
-
-    const tableMeta = db.exec(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-    );
-    const tableNames = tableMeta[0]?.values?.map((row) => String(row[0])) || [];
-
-    if (!tableNames.length) {
-      throw new Error("No user tables found in this SQLite file.");
-    }
-
-    state.sqliteTables = tableNames;
-    if (!state.sqliteTableName || !tableNames.includes(state.sqliteTableName)) {
-      state.sqliteTableName = tableNames[0];
-    }
-
-    const tableName = state.sqliteTableName;
-    updateSqliteTablePicker();
-    const quotedTable = quoteSqliteIdentifier(tableName);
-
-    const selectResult = db.exec(`SELECT * FROM ${quotedTable}`);
-    const pragmaResult = db.exec(`PRAGMA table_info(${quotedTable})`);
-    const pragmaHeaders = pragmaResult[0]?.values?.map((row) => String(row[1] || "")) || [];
-
-    const rawHeaders = selectResult[0]?.columns || pragmaHeaders;
-    const headers = rawHeaders.map((header, idx) => header || `Column ${idx + 1}`);
-    const values = selectResult[0]?.values || [];
-
-    const rows = values.map((valuesRow) => {
-      const row = {};
-      headers.forEach((header, idx) => {
-        row[header] = stringifyCellValue(valuesRow[idx]);
-      });
-      return row;
-    });
-
-    hydrateState(headers, rows);
-  } finally {
-    db.close();
+  if (!sqliteSupport || typeof sqliteSupport.parseDatabase !== "function") {
+    throw new Error("SQLite support module is unavailable.");
   }
+
+  const databaseData = await sqliteSupport.parseDatabase(buffer, state.sqliteTableName);
+  state.xlsxSheets = [];
+  state.xlsxSheetName = "";
+  state.sqliteTables = databaseData.tableNames;
+  state.sqliteTableName = databaseData.selectedTableName;
+  updateSqliteTablePicker();
+  hydrateState(databaseData.headers, databaseData.rows);
 }
 
 function parseXlsx(buffer) {
@@ -4869,6 +4806,17 @@ async function renderGroupedView(options = {}, renderPassId = renderState.render
   const groupedItems = flattenGroupedRenderRows(groupedTree, 0, visibleHeaders);
   state.visibleRowIds = collectVisibleRowIdsFromGroupedNodes(groupedTree, 0);
 
+  if (state.virtualizedRendering) {
+    virtualState.mode = "grouped";
+    virtualState.groupedItems = groupedItems;
+    virtualState.groupedHeaders = visibleHeaders;
+    renderVirtualizedGroupedRows();
+    attachVirtualScrollHandler();
+    updateMeta();
+    return;
+  }
+
+  detachVirtualScrollHandler();
   const shouldShowProgress = Boolean(options.showProgress) || groupedItems.length >= RENDER_PROGRESS_MIN_ROWS;
   await appendItemsInBatches(tbody, groupedItems, appendGroupedRenderItem, {
     renderPassId,
@@ -4954,6 +4902,9 @@ async function renderTable(options = {}) {
   dataTable.appendChild(thead);
 
   if (state.virtualizedRendering) {
+    virtualState.mode = "data";
+    virtualState.groupedItems = [];
+    virtualState.groupedHeaders = [];
     renderVirtualizedRows();
     attachVirtualScrollHandler();
     updateMeta();
@@ -5062,6 +5013,76 @@ function renderVirtualizedRows() {
   }
 }
 
+function renderVirtualizedGroupedRows() {
+  if (!state.virtualizedRendering || virtualState.mode !== "grouped") {
+    return;
+  }
+
+  const items = virtualState.groupedItems;
+  const visibleHeaders = virtualState.groupedHeaders;
+  const viewportHeight = Math.max(120, tableScroll.clientHeight || 0);
+  const scrollTop = tableScroll.scrollTop;
+  const estimatedRowHeight = Math.max(24, virtualState.rowHeight);
+  const startIndex = Math.max(0, Math.floor(scrollTop / estimatedRowHeight) - virtualState.overscan);
+  const visibleCount = Math.ceil(viewportHeight / estimatedRowHeight) + virtualState.overscan * 2;
+  const endIndex = Math.min(items.length, startIndex + visibleCount);
+  const rangeKey = `grouped:${startIndex}:${endIndex}:${items.length}:${visibleHeaders.join("\u001f")}`;
+  const existingBody = dataTable.querySelector("tbody");
+
+  if (rangeKey === virtualState.lastRangeKey && existingBody) {
+    return;
+  }
+  virtualState.lastRangeKey = rangeKey;
+
+  if (existingBody) {
+    existingBody.remove();
+  }
+
+  const tbody = document.createElement("tbody");
+  const colspan = visibleHeaders.length + getLeadingColumnCount();
+
+  if (startIndex > 0) {
+    appendVirtualSpacerRow(tbody, startIndex * estimatedRowHeight, colspan);
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (let index = startIndex; index < endIndex; index += 1) {
+    appendGroupedRenderItem(fragment, items[index]);
+  }
+  tbody.appendChild(fragment);
+
+  if (endIndex < items.length) {
+    appendVirtualSpacerRow(tbody, (items.length - endIndex) * estimatedRowHeight, colspan);
+  }
+
+  dataTable.appendChild(tbody);
+  updateVirtualRowHeight(tbody);
+}
+
+function appendVirtualSpacerRow(tbody, height, colspan) {
+  const spacerRow = document.createElement("tr");
+  const spacerCell = document.createElement("td");
+  spacerCell.colSpan = colspan;
+  spacerCell.style.height = `${height}px`;
+  spacerCell.style.padding = "0";
+  spacerCell.style.border = "0";
+  spacerCell.style.background = "transparent";
+  spacerRow.appendChild(spacerCell);
+  tbody.appendChild(spacerRow);
+}
+
+function updateVirtualRowHeight(tbody) {
+  const sampleRow = tbody.querySelector("tr td[data-row-id]")?.parentElement;
+  if (!sampleRow) {
+    return;
+  }
+
+  const measured = Math.round(sampleRow.getBoundingClientRect().height);
+  if (measured >= 24 && measured <= 80) {
+    virtualState.rowHeight = measured;
+  }
+}
+
 function onVirtualScroll() {
   if (virtualState.scrollRaf) {
     return;
@@ -5069,7 +5090,11 @@ function onVirtualScroll() {
 
   virtualState.scrollRaf = requestAnimationFrame(() => {
     virtualState.scrollRaf = null;
-    renderVirtualizedRows();
+    if (virtualState.mode === "grouped") {
+      renderVirtualizedGroupedRows();
+    } else {
+      renderVirtualizedRows();
+    }
   });
 }
 
@@ -5088,6 +5113,9 @@ function detachVirtualScrollHandler() {
   tableScroll.removeEventListener("scroll", onVirtualScroll);
   virtualState.scrollListenerAttached = false;
   virtualState.lastRangeKey = "";
+  virtualState.mode = "";
+  virtualState.groupedItems = [];
+  virtualState.groupedHeaders = [];
 }
 
 function moveHeaderToVisiblePosition(draggedHeader, targetVisibleIndex) {

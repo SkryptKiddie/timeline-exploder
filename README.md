@@ -14,7 +14,6 @@ A lightweight, browser-based CSV/JSON/SQLite/XLSX explorer for large tabular dat
   - `{ "rows": [...] }`
 - Renders a scrollable data grid with sticky headers and sticky selection column,
 - Provides interactive analysis controls (filter/sort/group/reorder/resize),
-- Virtualised rendering for larger files, for more seamless scrolling,
 - Global search and find next support.
 
 ## Core Features
