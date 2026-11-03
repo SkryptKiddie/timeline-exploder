@@ -5974,13 +5974,18 @@ function updateSelectedActionsVisibility() {
   copySelectedHtmlMenuItem.classList.toggle("hidden", !hasSelection);
 }
 
-function onToggleGroupExpand(groupId) {
+async function onToggleGroupExpand(groupId) {
+  const { scrollLeft, scrollTop } = tableScroll;
+
   if (state.expandedGroups.has(groupId)) {
     state.expandedGroups.delete(groupId);
   } else {
     state.expandedGroups.add(groupId);
   }
-  renderTable();
+
+  await renderTable();
+  tableScroll.scrollLeft = scrollLeft;
+  tableScroll.scrollTop = scrollTop;
 }
 
 function clearGroupBy() {
