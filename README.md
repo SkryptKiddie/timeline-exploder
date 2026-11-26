@@ -15,6 +15,7 @@ A lightweight, browser-based CSV/JSON/SQLite/XLSX explorer for large tabular dat
 - Renders a scrollable data grid with sticky headers and sticky selection column,
 - Provides interactive analysis controls (filter/sort/group/reorder/resize),
 - Global search and find next support.
+- Highlights JSON and recognizable PowerShell scripts in the cell viewer, and links, email addresses, UUIDs, and timestamps in plain text.
 
 ## Core Features
 

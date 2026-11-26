@@ -3267,6 +3267,30 @@ function highlightPlainText(text) {
   });
 }
 
+function looksLikePowerShell(text) {
+  return /(?:\$(?:[\w:]+|\{[^}\r\n]+\})\s*=(?!=))|(?:\$(?:[\w:]+|\{[^}\r\n]+\})\s+-(?:eq|ne|gt|ge|lt|le|like|match|contains|in)\b)|\b(?:Get|Set|New|Remove|Start|Stop|Invoke|Import|Export|Write|Read|Add|Clear|Select|Where|ForEach|Out|Test|Connect|Disconnect)-[A-Za-z][\w-]*\b/i.test(text);
+}
+
+function highlightPowerShellText(text) {
+  const tokenRegex = /(@(['"])\r?\n[\s\S]*?^\2@)|(<#[\s\S]*?(?:#>|$)|#[^\r\n]*)|('(?:''|[^'])*'|"(?:`[\s\S]|""|[^"`])*")|(\$(?:\{[^}\r\n]+\}|[\w:]+|[?$^]))|(\[[A-Za-z_][\w.[\],]*\])|(-[A-Za-z][\w-]*)|(\b(?:function|filter|param|begin|process|end|if|else|elseif|switch|foreach|for|while|do|until|try|catch|finally|throw|return|break|continue|exit|in|class|enum|using|workflow|trap|data|dynamicparam)\b|\b[A-Za-z]+-[A-Za-z][\w-]*\b)|(\b\d+(?:\.\d+)?\b)/gim;
+
+  return renderTokenizedHtml(text, tokenRegex, (match) => {
+    if (match[1] || match[4]) {
+      return "cell-token-string";
+    }
+    if (match[3]) {
+      return "cell-token-datetime";
+    }
+    if (match[5]) {
+      return /^\$(?:true|false|null)$/i.test(match[5]) ? "cell-token-boolean" : "cell-token-url";
+    }
+    if (match[6] || match[9]) {
+      return "cell-token-number";
+    }
+    return "cell-token-key";
+  });
+}
+
 function renderCellOverlayValue(rawValue) {
   const text = rawValue || "";
   if (!text) {
@@ -3285,7 +3309,13 @@ function renderCellOverlayValue(rawValue) {
       return;
     }
   } catch {
-    // Keep plain-text rendering when input is not valid JSON.
+    // Try other highlighting when input is not valid JSON.
+  }
+
+  if (looksLikePowerShell(text)) {
+    cellOverlayValue.innerHTML = highlightPowerShellText(text);
+    cellOverlaySyntaxHint.textContent = "PowerShell";
+    return;
   }
 
   cellOverlayValue.innerHTML = highlightPlainText(text);
