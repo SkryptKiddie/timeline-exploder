@@ -56,6 +56,7 @@ function setTheme(theme) {
 function syncMenuCheckboxStates() {
   firstRowHeaderMenuItem.setAttribute("aria-checked", state.firstRowIsHeader ? "true" : "false");
   wordWrapMenuItem.setAttribute("aria-checked", state.wordWrap ? "true" : "false");
+  focusCellMenuItem.setAttribute("aria-checked", state.focusCell ? "true" : "false");
   lineNumberVisibleMenuItem.setAttribute("aria-checked", state.showRowNumbers ? "true" : "false");
   Object.entries(THEME_MENU_ITEMS).forEach(([themeName, menuItem]) => {
     menuItem.setAttribute("aria-checked", state.theme === themeName ? "true" : "false");

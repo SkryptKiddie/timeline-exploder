@@ -1544,6 +1544,22 @@ body {
   outline-offset: -2px;
 }
 
+.data-table tr.row-details-open {
+  --row-details-tint: color-mix(in srgb, var(--theme-primary) 20%, transparent);
+}
+
+.data-table tr.focus-cell-row,
+.data-table td.focus-cell-column {
+  --focus-cell-tint: color-mix(in srgb, var(--theme-primary) 12%, transparent);
+}
+
+.data-table tr.row-details-open td,
+.data-table tr.focus-cell-row td,
+.data-table td.focus-cell-column {
+  background-image: linear-gradient(var(--row-details-tint, transparent), var(--row-details-tint, transparent)),
+    linear-gradient(var(--focus-cell-tint, transparent), var(--focus-cell-tint, transparent)) !important;
+}
+
 .data-table td.cell-selected {
   background: rgba(0, 120, 212, 0.16) !important;
   --cell-selection-top: 0 0 transparent;

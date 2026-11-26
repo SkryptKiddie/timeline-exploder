@@ -50,6 +50,7 @@ const openFileMenuItem = document.getElementById("openFileMenuItem");
 const closeFileMenuItem = document.getElementById("closeFileMenuItem");
 const firstRowHeaderMenuItem = document.getElementById("firstRowHeaderMenuItem");
 const wordWrapMenuItem = document.getElementById("wordWrapMenuItem");
+const focusCellMenuItem = document.getElementById("focusCellMenuItem");
 const lineNumberVisibleMenuItem = document.getElementById("lineNumberVisibleMenuItem");
 const themeMenuItem = document.getElementById("themeMenuItem");
 const timeWindowMenuItem = document.getElementById("timeWindowMenuItem");
@@ -153,6 +154,7 @@ const state = {
   showRowNumbers: true,
   theme: "material-light", // "light" | "dark"
   wordWrap: false,
+  focusCell: false,
   hideEmptyCols: false,
   virtualizedRendering: false,
   findQuery: "",
@@ -278,6 +280,7 @@ const AUTO_VIRTUALIZE_THRESHOLD_BYTES = 1024 * 1024;
 const AUTO_VIRTUALIZE_THRESHOLD_ROWS = 2000;
 const AUTO_VIRTUALIZE_THRESHOLD_CELLS = 50000;
 const ROW_NUMBER_VISIBILITY_STORAGE_KEY = "timelineExploderShowRowNumbers";
+const FOCUS_CELL_STORAGE_KEY = "timelineExploderFocusCell";
 const CELL_OVERLAY_FONT_MIN = 10;
 const CELL_OVERLAY_FONT_MAX = 28;
 const FILE_TAB_LABEL_MAX = 28;
@@ -919,6 +922,9 @@ function applyTabSnapshot(snapshot) {
   state.advancedSearchAst = snapshot.advancedSearchAst ? structuredClone(snapshot.advancedSearchAst) : null;
   state.advancedSearchError = snapshot.advancedSearchError || "";
   state.selectedRowIds = new Set(snapshot.selectedRowIds || []);
+  state.selectedCells = new Set();
+  state.cellSelectionAnchor = null;
+  state.activeCell = null;
   state.columnWidths = { ...(snapshot.columnWidths || {}) };
   state.rowNumberWidth = Number(snapshot.rowNumberWidth) || 72;
   state.sort = snapshot.sort ? { ...snapshot.sort } : { header: null, direction: null };
@@ -1413,6 +1419,11 @@ wordWrapMenuItem.addEventListener("click", () => {
   toggleWordWrap();
 });
 
+focusCellMenuItem.addEventListener("click", () => {
+  closeAllMenus();
+  toggleFocusCell();
+});
+
 lineNumberVisibleMenuItem.addEventListener("click", () => {
   closeAllMenus();
   toggleRowNumberVisibility();
@@ -1563,6 +1574,7 @@ groupByList.addEventListener("drop", onGroupListDrop);
 
 loadThemePreference();
 loadRowNumberVisibilityPreference();
+loadFocusCellPreference();
 syncMenuCheckboxStates();
 applyTheme();
 applyWordWrapClass();
@@ -2080,7 +2092,7 @@ function closeAllMenus() {
 }
 
 function onDocumentClick(event) {
-  if (!dataTable.contains(event.target) && state.selectedCells.size) {
+  if (!dataTable.contains(event.target) && !event.target.closest("#optionsMenuBtn, #optionsMenu") && state.selectedCells.size) {
     state.selectedCells.clear();
     state.cellSelectionAnchor = null;
     state.activeCell = null;
@@ -2346,6 +2358,23 @@ function syncCellSelectionInDom() {
   cells.forEach((cell) => {
     applyCellSelectionClasses(cell, cell.dataset.rowId, cell.dataset.header);
   });
+  syncFocusCellInDom();
+}
+
+function syncFocusCellInDom() {
+  const activeCell = state.focusCell ? state.activeCell : null;
+  if (!activeCell) {
+    dataTable.querySelectorAll(".focus-cell-row, .focus-cell-column").forEach((element) => {
+      element.classList.remove("focus-cell-row", "focus-cell-column");
+    });
+    return;
+  }
+  dataTable.querySelectorAll("tbody .row-menu-trigger").forEach((button) => {
+    button.closest("tr").classList.toggle("focus-cell-row", button.dataset.rowId === activeCell.rowId);
+  });
+  dataTable.querySelectorAll("td[data-row-id][data-header]").forEach((cell) => {
+    cell.classList.toggle("focus-cell-column", cell.dataset.header === activeCell.header);
+  });
 }
 
 function applyCellSelectionClasses(cell, rowId, header) {
@@ -2439,6 +2468,7 @@ function moveActiveCellSelection(key, extendRange) {
     header: visibleHeaders[nextColumnIndex]
   };
 
+  state.activeCell = target;
   if (extendRange && state.cellSelectionAnchor) {
     selectCellRange(state.cellSelectionAnchor, target);
   } else {
@@ -2447,7 +2477,6 @@ function moveActiveCellSelection(key, extendRange) {
     syncCellSelectionInDom();
   }
 
-  state.activeCell = target;
   revealActiveCell();
   return true;
 }
@@ -2477,8 +2506,8 @@ function onDataTableClick(event) {
     return;
   }
 
-  selectCellRange(state.cellSelectionAnchor, { rowId, header });
   state.activeCell = { rowId, header };
+  selectCellRange(state.cellSelectionAnchor, state.activeCell);
 }
 
 function onDataTableCellMouseDown(event) {
@@ -2531,8 +2560,8 @@ function onCellSelectionDragMove(event) {
   if (target.rowId !== cellSelectionDragState.anchor.rowId || target.header !== cellSelectionDragState.anchor.header) {
     cellSelectionDragState.moved = true;
   }
-  selectCellRange(cellSelectionDragState.anchor, target);
   state.activeCell = target;
+  selectCellRange(cellSelectionDragState.anchor, target);
 }
 
 function onCellSelectionDragEnd() {
@@ -2764,7 +2793,9 @@ function syncRowDetailsTriggers() {
   const openRowId = rowDetailsOverlay.dataset.rowId || "";
   const isOverlayOpen = !rowDetailsOverlay.classList.contains("hidden");
   document.querySelectorAll(".row-menu-trigger").forEach((button) => {
-    setRowDetailsTriggerState(button, isOverlayOpen && button.dataset.rowId === openRowId);
+    const isOpen = isOverlayOpen && button.dataset.rowId === openRowId;
+    setRowDetailsTriggerState(button, isOpen);
+    button.closest("tr").classList.toggle("row-details-open", isOpen);
   });
 }
 
@@ -3417,6 +3448,26 @@ function toggleWordWrap() {
     applyWordWrapClass();
   }
   setStatus(`Word Wrap Fields: ${state.wordWrap ? "On" : "Off"}.`, "ok");
+}
+
+function toggleFocusCell() {
+  state.focusCell = !state.focusCell;
+  try {
+    localStorage.setItem(FOCUS_CELL_STORAGE_KEY, state.focusCell ? "1" : "0");
+  } catch (error) {
+    console.warn("Focus cell preference could not be saved to localStorage.", error);
+  }
+  syncMenuCheckboxStates();
+  syncFocusCellInDom();
+  setStatus(`Focus Cell: ${state.focusCell ? "On" : "Off"}.`, "ok");
+}
+
+function loadFocusCellPreference() {
+  try {
+    state.focusCell = localStorage.getItem(FOCUS_CELL_STORAGE_KEY) === "1";
+  } catch (error) {
+    console.warn("Focus cell preference could not be read from localStorage.", error);
+  }
 }
 
 function toggleRowNumberVisibility() {
@@ -4551,6 +4602,8 @@ function appendTableHeader(thead, visibleHeaders) {
 function appendDataRow(tbody, row, visibleHeaders) {
   const tr = document.createElement("tr");
   applyRowColoring(tr, row);
+  tr.classList.toggle("row-details-open", !rowDetailsOverlay.classList.contains("hidden") && rowDetailsOverlay.dataset.rowId === row.__rowId);
+  tr.classList.toggle("focus-cell-row", Boolean(state.focusCell && state.activeCell && state.activeCell.rowId === row.__rowId));
 
   const selectTd = document.createElement("td");
   selectTd.className = "selection-cell";
@@ -4602,6 +4655,7 @@ function appendDataRow(tbody, row, visibleHeaders) {
     td.dataset.rowId = row.__rowId;
     td.dataset.header = header;
     td.textContent = row[header] || "";
+    td.classList.toggle("focus-cell-column", Boolean(state.focusCell && state.activeCell && state.activeCell.header === header));
     applyCellSelectionClasses(td, row.__rowId, header);
 
     if (isCellFindMatch(row.__rowId, header)) {
@@ -4831,6 +4885,8 @@ async function renderGroupedView(options = {}, renderPassId = renderState.render
   }
 
   dataTable.appendChild(tbody);
+  syncFocusCellInDom();
+  syncRowDetailsTriggers();
   updateMeta();
 
   if (shouldShowProgress && !keepProgressVisible) {
@@ -4934,6 +4990,8 @@ async function renderTable(options = {}) {
   }
 
   dataTable.appendChild(tbody);
+  syncFocusCellInDom();
+  syncRowDetailsTriggers();
   updateMeta();
   focusActiveFindMatch();
 
